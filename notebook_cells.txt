@@ -1,0 +1,1385 @@
+=== CELL 1 markdown ===
+# **Data Cleaning**
+
+=== CELL 2 code ===
+import pandas as pd
+from pathlib import Path
+
+def load_excel(file_path):
+    file_ext = Path(file_path).suffix.lower()
+
+    if file_ext == ".xlsx":
+        return pd.read_excel(file_path, engine="openpyxl", header=1)
+
+    elif file_ext == ".xls":
+        return pd.read_excel(file_path, engine="xlrd")
+
+    else:
+        raise ValueError("Unsupported file format. Use .xls or .xlsx")
+
+
+=== CELL 3 code ===
+# Load two files
+df1 = load_excel(r"C:\Users\subra\OneDrive\Inward Register Feb-25.xlsx")
+df2 = pd.read_excel(
+    r"C:\Users\subra\OneDrive\022025_29ADAFS3950J1ZS_GSTR2B_18032025_SSA Firm.xlsx",
+    sheet_name="B2B",
+    engine="openpyxl",
+    header = [4,5]
+)
+print(df1.head())
+print(df2.head())
+
+=== CELL 4 code ===
+df1
+
+=== CELL 5 code ===
+df2
+
+=== CELL 6 code ===
+df1.columns
+
+=== CELL 7 code ===
+df2.columns
+
+=== CELL 8 code ===
+df2['GSTIN of supplier']
+
+=== CELL 9 code ===
+# -------- CLEAN df1 --------
+
+df1 = df1[
+    ~(
+        df1["Supplier"].isna() &
+        df1["Gross Total"].isna()
+    )
+]
+
+
+# -------- CLEAN df2 --------
+
+df2 = df2[
+    ~(
+        df2['Trade/Legal name',  'Unnamed: 1_level_1'].isna() &
+        df2["Invoice Details","Invoice Value(₹)"].isna()
+    )
+]
+
+df1
+
+=== CELL 10 code ===
+#fix dates
+
+df1["Accounting Date"] = pd.to_datetime(
+    df1["Accounting Date"],
+    errors="coerce"
+)
+
+df2[("Invoice Details", "Invoice Date")] = pd.to_datetime(
+    df2[("Invoice Details", "Invoice Date")],
+    errors="coerce"
+)
+
+
+=== CELL 11 code ===
+# Fix numerical columns and recompute books money from rate-wise taxable columns
+
+rate_cols = {
+    "Taxable @ 0%": 0.00,
+    "Taxable @ 5%": 0.05,
+    "Taxable @ 12%": 0.12,
+    "Taxable @ 18%": 0.18,
+    "Taxable @ 28%": 0.28,
+}
+
+# Convert all money inputs we may use. Missing columns are ignored so the cell stays reusable.
+df1_numeric_cols = [
+    "Gross Total",
+    "Taxable Value",
+    "CGST",
+    "SGST",
+    "IGST",
+    "Cess",
+    "Exempt",
+    "Others",
+    *rate_cols.keys(),
+]
+
+for col in df1_numeric_cols:
+    if col in df1.columns:
+        df1[col] = pd.to_numeric(df1[col], errors="coerce").fillna(0)
+
+
+df2_numeric_cols = [
+    ("Invoice Details", "Invoice Value(₹)"),
+    ("Taxable Value (₹)", "Unnamed: 8_level_1"),
+    ("Tax Amount", "Central Tax(₹)"),
+    ("Tax Amount", "State/UT Tax(₹)"),
+    ("Tax Amount", "Integrated Tax(₹)")
+]
+
+for col in df2_numeric_cols:
+    df2[col] = pd.to_numeric(df2[col], errors="coerce").fillna(0)
+
+available_rate_cols = [col for col in rate_cols if col in df1.columns]
+is_intra_state = df1["Type"].astype("string").str.upper().str.contains("INTRA", na=False)
+
+recomputed_taxable = sum(df1[col] for col in available_rate_cols)
+recomputed_cgst = sum(df1[col] * (rate / 2) for col, rate in rate_cols.items() if col in df1.columns)
+recomputed_sgst = recomputed_cgst.copy()
+recomputed_igst = sum(df1[col] * rate for col, rate in rate_cols.items() if col in df1.columns)
+
+# Preserve the loaded formula values for audit, then replace them with recomputed values.
+df1["taxable_value_loaded"] = df1["Taxable Value"]
+df1["cgst_loaded"] = df1["CGST"]
+df1["sgst_loaded"] = df1["SGST"]
+df1["igst_loaded"] = df1["IGST"]
+
+df1["Taxable Value"] = recomputed_taxable.round(2)
+df1["CGST"] = recomputed_cgst.where(is_intra_state, 0).round(2)
+df1["SGST"] = recomputed_sgst.where(is_intra_state, 0).round(2)
+df1["IGST"] = recomputed_igst.where(~is_intra_state, 0).round(2)
+
+cess = df1["Cess"] if "Cess" in df1.columns else 0
+exempt = df1["Exempt"] if "Exempt" in df1.columns else 0
+others = df1["Others"] if "Others" in df1.columns else 0
+
+df1["gross_total_recomputed"] = (
+    df1["Taxable Value"] + df1["CGST"] + df1["SGST"] + df1["IGST"] + cess + exempt + others
+).round(2)
+
+df1["gross_total_diff"] = (df1["Gross Total"] - df1["gross_total_recomputed"]).round(2)
+dirty_input = df1[df1["gross_total_diff"].abs() > 2].copy()
+
+print(f"Dirty input rows needing review: {len(dirty_input)}")
+
+
+=== CELL 12 code ===
+# -------- TRIM SPACES --------
+
+df1["Supplier"] = (
+    df1["Supplier"]
+    .astype("string")
+    .str.strip()
+    .str.upper()
+)
+
+
+df2[("Trade/Legal name", "Unnamed: 1_level_1")] = (
+    df2[("Trade/Legal name", "Unnamed: 1_level_1")]
+    .astype("string")
+    .str.strip()
+    .str.upper()
+)
+
+=== CELL 13 code ===
+#cleaning trailing and leading spaces in invoice number and gstin columns
+
+df1["Voucher Number"] = (
+    df1["Voucher Number"]
+    .astype("string")
+    .str.strip()
+    .str.upper()
+)
+df1["GSTIN/UIN"] = (
+    df1["GSTIN/UIN"]
+    .astype("string")
+    .str.strip()
+    .str.upper()
+)
+
+df2[("Invoice Details", "Invoice number")] = (
+    df2[("Invoice Details", "Invoice number")]
+    .astype("string")
+    .str.strip()
+    .str.upper()
+)
+
+df2[("GSTIN of supplier", "Unnamed: 0_level_1")] = (
+    df2[("GSTIN of supplier", "Unnamed: 0_level_1")]
+    .astype("string")
+    .str.strip()
+    .str.upper()
+)
+
+=== CELL 14 code ===
+# -------- ROUND NUMERIC VALUES --------
+
+money_cols = [
+    "Gross Total",
+    "Taxable Value",
+    "CGST",
+    "SGST",
+    "IGST",
+    "gross_total_recomputed",
+    "gross_total_diff",
+]
+
+for col in money_cols:
+    if col in df1.columns:
+        df1[col] = df1[col].round(2)
+
+df2[("Invoice Details", "Invoice Value(₹)")] = (
+    df2[("Invoice Details", "Invoice Value(₹)")]
+    .round(2)
+)
+
+
+=== CELL 15 code ===
+# Duplicate row count in df1
+#keep the duplicated rows in mind if any
+df1_duplicates = df1.duplicated().sum()
+
+# Duplicate row count in df2
+df2_duplicates = df2.duplicated().sum()
+
+print("df1 duplicate rows:", df1_duplicates)
+print("df2 duplicate rows:", df2_duplicates)
+
+=== CELL 16 code ===
+# Create dataframe with MultiIndex columns
+
+combined_df = pd.DataFrame({
+
+    # -------- df1 --------
+    ("df1", "date"): df1["Accounting Date"],
+    ("df1", "gstin"): df1["GSTIN/UIN"],
+    ("df1", "supplier"): df1["Supplier"],
+    ("df1", "taxable_value"): df1["Taxable Value"],
+    ("df1", "cgst"): df1["CGST"],
+    ("df1", "sgst"): df1["SGST"],
+    ("df1", "igst"): df1["IGST"],
+    ("df1", "voucher_number"): df1["Voucher Number"],
+    ("df1", "invoice_value"): df1["Gross Total"],
+
+    # -------- df2 --------
+    ("df2", "date"): df2[("Invoice Details", "Invoice Date")],
+    ("df2", "gstin"): df2[("GSTIN of supplier", "Unnamed: 0_level_1")],
+    ("df2", "supplier"): df2[("Trade/Legal name", "Unnamed: 1_level_1")],
+    ("df2", "taxable_value"): df2[("Taxable Value (₹)", "Unnamed: 8_level_1")],
+    ("df2", "cgst"): df2[("Tax Amount", "Central Tax(₹)")],
+    ("df2", "sgst"): df2[("Tax Amount", "State/UT Tax(₹)")],
+    ("df2", "igst"): df2[("Tax Amount", "Integrated Tax(₹)")],
+    ("df2", "invoice_number"): df2[("Invoice Details", "Invoice number")],
+    ("df2", "invoice_value"): df2[("Invoice Details", "Invoice Value(₹)")]
+
+})
+
+# Convert columns to MultiIndex
+combined_df.columns = pd.MultiIndex.from_tuples(combined_df.columns)
+
+print(combined_df.head())
+
+=== CELL 17 code ===
+combined_df
+
+=== CELL 18 code ===
+# Count null values for each column
+null_counts = combined_df.isnull().sum()
+
+print(null_counts)
+
+=== CELL 19 code ===
+# Rows where df1 date is null
+null_df1_date_rows = combined_df[
+    combined_df[("df1", "date")].isnull()
+]
+(null_df1_date_rows)
+
+#verdict:
+# no values with null dates when there is an entry
+
+=== CELL 20 code ===
+# Rows where df1 supplier is null
+null_df1_supplier_rows = combined_df[
+    combined_df[("df1", "supplier")].isnull()
+]
+(null_df1_supplier_rows)
+
+#verdict
+# no values with supplier null when there is an entry
+
+=== CELL 21 code ===
+# Rows where df1 invoice value is null
+null_df1_invoice_value_rows = combined_df[
+    combined_df[("df1", "invoice_value")].isnull()
+]
+(null_df1_invoice_value_rows)
+
+#verdict
+# no values with invoice value null when there is an entry
+
+=== CELL 22 code ===
+print(combined_df.columns)
+
+=== CELL 24 markdown ===
+# **Data reconcillation**
+
+=== CELL 25 code ===
+df1
+
+=== CELL 26 code ===
+gstr2b = df2
+
+=== CELL 27 code ===
+# Group books to invoice level before matching.
+# We group by supplier + invoice so repeated invoice numbers from different suppliers do not get mixed.
+matchable_books = df1.drop(index=dirty_input.index).copy()
+
+books_grouped = (
+    matchable_books.groupby(
+        ["Supplier", "Voucher Number"],
+        dropna=False
+    )
+    .agg(
+        gstin       = ("GSTIN/UIN", "first"),
+        date        = ("Accounting Date", "first"),
+        taxable_value = ("Taxable Value", "sum"),
+        cgst        = ("CGST", "sum"),
+        sgst        = ("SGST", "sum"),
+        igst        = ("IGST", "sum"),
+        gross_total = ("Gross Total", "sum"),
+        source_rows = ("Voucher Number", lambda x: list(x.index))
+    )
+    .reset_index()
+    .reset_index()
+    .rename(columns={"index": "books_group_idx"})
+)
+
+books_grouped.head()
+
+
+=== CELL 28 code ===
+TOL = 2  # ₹2 tolerance
+
+tax_columns = ["cgst", "sgst", "igst"]
+
+def money_matches(b, g):
+    taxable_match = abs(b["taxable_value"] - g["taxable_value"]) <= TOL
+    component_tax_match = all(
+        abs(b[col] - g[col]) <= TOL
+        for col in tax_columns
+    )
+
+    # Allows CGST+SGST in one file vs IGST in the other when total tax agrees.
+    total_tax_match = abs(
+        (b["cgst"] + b["sgst"] + b["igst"]) -
+        (g["cgst"] + g["sgst"] + g["igst"])
+    ) <= TOL
+
+    return taxable_match and (component_tax_match or total_tax_match)
+
+
+=== CELL 29 code ===
+# Keep df2 with its original MultiIndex columns, and create a flat working copy for matching.
+df2_flat = df2.copy()
+df2_flat.columns = [
+    a if "Unnamed" in b else f"{a}_{b}"
+    for a, b in df2_flat.columns
+]
+
+gstr2b = df2_flat.rename(columns={
+    "GSTIN of supplier": "gstin",
+    "Trade/Legal name": "supplier",
+    "Invoice Details_Invoice number": "invoice_number",
+    "Invoice Details_Invoice Date": "date",
+    "Invoice Details_Invoice Value(₹)": "invoice_value",
+    "Taxable Value (₹)": "taxable_value",
+    "Tax Amount_Central Tax(₹)": "cgst",
+    "Tax Amount_State/UT Tax(₹)": "sgst",
+    "Tax Amount_Integrated Tax(₹)": "igst",
+})
+
+gstr2b = gstr2b.reset_index().rename(columns={"index": "gstr2b_idx"})
+gstr2b.head()
+
+
+=== CELL 30 code ===
+TOL = 2
+
+books_r = books_grouped.copy()
+gstr2b_r = gstr2b.copy()
+
+# Branch 1: GSTIN + invoice must both match (design.md sheet 1A, first condition).
+# This prevents a books row from matching a 2B row that merely shares its GSTIN.
+merge_gstin_invoice = books_r.merge(
+    gstr2b_r,
+    left_on=["gstin", "Voucher Number"],
+    right_on=["gstin", "invoice_number"],
+    how="inner",
+    suffixes=("_b", "_g")
+)
+
+# Branch 2: invoice + supplier must both match (design.md sheet 1A, second condition).
+# Covers no-GSTIN rows and mistyped-GSTIN rows where invoice and supplier agree.
+# This prevents a books row from matching a 2B row that merely shares its invoice number.
+merge_invoice_supplier = books_r.merge(
+    gstr2b_r,
+    left_on=["Voucher Number", "Supplier"],
+    right_on=["invoice_number", "supplier"],
+    how="inner",
+    suffixes=("_b", "_g")
+)
+
+candidates = pd.concat([merge_gstin_invoice, merge_invoice_supplier], ignore_index=True).drop_duplicates(
+    subset=["books_group_idx", "gstr2b_idx"]
+)
+
+# Apply money tolerance filter. Tax buckets may match component-wise or by total tax.
+taxable_match = abs(candidates["taxable_value_b"] - candidates["taxable_value_g"]) <= TOL
+component_tax_match = (
+    (abs(candidates["cgst_b"] - candidates["cgst_g"]) <= TOL) &
+    (abs(candidates["sgst_b"] - candidates["sgst_g"]) <= TOL) &
+    (abs(candidates["igst_b"] - candidates["igst_g"]) <= TOL)
+)
+total_tax_match = abs(
+    (candidates["cgst_b"] + candidates["sgst_b"] + candidates["igst_b"]) -
+    (candidates["cgst_g"] + candidates["sgst_g"] + candidates["igst_g"])
+) <= TOL
+
+sheet1_candidates = candidates[
+    taxable_match & (component_tax_match | total_tax_match)
+].copy()
+
+# Ranking follows design.md section 7.
+# invoice_exact: always True here (both branches require invoice to match), used as sanity check.
+# gstin_exact: True only for branch-1 rows (joined on gstin); NaN for branch-2 rows after concat.
+# supplier_exact: True for branch-2 rows (joined on supplier); may vary for branch-1 rows.
+sheet1_candidates["invoice_exact"] = (
+    sheet1_candidates["Voucher Number"] == sheet1_candidates["invoice_number"]
+)
+sheet1_candidates["gstin_exact"] = sheet1_candidates["gstin"].notna()
+sheet1_candidates["supplier_exact"] = (
+    sheet1_candidates["Supplier"] == sheet1_candidates["supplier"]
+)
+sheet1_candidates["total_money_diff"] = (
+    (sheet1_candidates["taxable_value_b"] - sheet1_candidates["taxable_value_g"]).abs() +
+    (sheet1_candidates["cgst_b"] - sheet1_candidates["cgst_g"]).abs() +
+    (sheet1_candidates["sgst_b"] - sheet1_candidates["sgst_g"]).abs() +
+    (sheet1_candidates["igst_b"] - sheet1_candidates["igst_g"]).abs()
+)
+sheet1_candidates["date_diff_days"] = (
+    sheet1_candidates["date_b"] - sheet1_candidates["date_g"]
+).abs().dt.days.fillna(999999)
+
+complete_cols = ["gstin", "Voucher Number", "Supplier", "invoice_number", "supplier"]
+sheet1_candidates["blank_count"] = sheet1_candidates[complete_cols].isna().sum(axis=1)
+
+sheet1_candidates = sheet1_candidates.sort_values(
+    by=[
+        "invoice_exact",
+        "gstin_exact",
+        "supplier_exact",
+        "total_money_diff",
+        "date_diff_days",
+        "blank_count",
+    ],
+    ascending=[False, False, False, True, True, True]
+)
+
+accepted_rows = []
+needs_review_sheet1 = []
+used_books = set()
+used_gstr2b = set()
+
+rank_cols = [
+    "invoice_exact",
+    "gstin_exact",
+    "supplier_exact",
+    "total_money_diff",
+    "date_diff_days",
+    "blank_count",
+]
+
+for books_id, group in sheet1_candidates.groupby("books_group_idx", sort=False):
+    available = group[
+        ~group["books_group_idx"].isin(used_books) &
+        ~group["gstr2b_idx"].isin(used_gstr2b)
+    ]
+
+    if available.empty:
+        continue
+
+    best = available.iloc[0]
+    tied_best = available[
+        (available[rank_cols] == best[rank_cols]).all(axis=1)
+    ]
+
+    if len(tied_best) > 1:
+        needs_review_sheet1.append(tied_best)
+        continue
+
+    accepted_rows.append(best)
+    used_books.add(best["books_group_idx"])
+    used_gstr2b.add(best["gstr2b_idx"])
+
+sheet1a = pd.DataFrame(accepted_rows)
+needs_review_sheet1 = (
+    pd.concat(needs_review_sheet1, ignore_index=True)
+    if needs_review_sheet1 else
+    pd.DataFrame(columns=sheet1_candidates.columns)
+)
+
+books_pool = books_grouped[~books_grouped["books_group_idx"].isin(used_books)].copy()
+gstr2b_pool = gstr2b[~gstr2b["gstr2b_idx"].isin(used_gstr2b)].copy()
+
+print(f"Sheet 1A candidates: {len(sheet1_candidates)}")
+print(f"Sheet 1A one-to-one matches: {len(sheet1a)}")
+print(f"Sheet 1A needs review ties: {len(needs_review_sheet1)}")
+print(f"Books groups remaining: {len(books_pool)}")
+print(f"2B remaining: {len(gstr2b_pool)}")
+
+
+=== CELL 31 code ===
+import re
+
+# Reuse if Sheet 2 already ran, otherwise define here
+try:
+    standardize_invoice
+except NameError:
+    def standardize_invoice(val):
+        if pd.isna(val) or str(val).strip() in ("", "<NA>", "nan"):
+            return None
+        s = re.sub(r"[\s/\-]+", "", str(val)).upper().lstrip("0")
+        return s if s else None
+
+# -------- SHEET 1B / 1C --------
+# money + GSTIN  OR  money + supplier,  invoice does NOT match (exact or standardized)
+# 1B: amount unique for that identity on both sides  →  auto-match
+# 1C: amount not unique (collision)                  →  blue
+
+books_1bc  = books_pool.copy()
+gstr2b_1bc = gstr2b_pool.copy()
+books_1bc["std_voucher"]  = books_1bc["Voucher Number"].apply(standardize_invoice)
+gstr2b_1bc["std_invoice"] = gstr2b_1bc["invoice_number"].apply(standardize_invoice)
+
+# Branch A: GSTIN identity
+branch_a = books_1bc.merge(gstr2b_1bc, on="gstin", how="inner", suffixes=("_b", "_g"))
+branch_a["match_branch"] = "gstin"
+
+# Branch B: supplier identity
+branch_b = books_1bc.merge(
+    gstr2b_1bc,
+    left_on="Supplier", right_on="supplier",
+    how="inner", suffixes=("_b", "_g")
+)
+branch_b["match_branch"] = "supplier"
+branch_b["gstin"] = branch_b["gstin_b"]   # normalize: "gstin" column always exists after concat
+
+cands_1bc = pd.concat([branch_a, branch_b], ignore_index=True).drop_duplicates(
+    subset=["books_group_idx", "gstr2b_idx"]
+)
+
+# Money filter
+tv_ok   = abs(cands_1bc["taxable_value_b"] - cands_1bc["taxable_value_g"]) <= TOL
+comp_ok = (
+    (abs(cands_1bc["cgst_b"] - cands_1bc["cgst_g"]) <= TOL) &
+    (abs(cands_1bc["sgst_b"] - cands_1bc["sgst_g"]) <= TOL) &
+    (abs(cands_1bc["igst_b"] - cands_1bc["igst_g"]) <= TOL)
+)
+tot_ok  = abs(
+    (cands_1bc["cgst_b"] + cands_1bc["sgst_b"] + cands_1bc["igst_b"]) -
+    (cands_1bc["cgst_g"] + cands_1bc["sgst_g"] + cands_1bc["igst_g"])
+) <= TOL
+cands_1bc = cands_1bc[tv_ok & (comp_ok | tot_ok)].copy()
+
+# Drop invoice-exact pairs — those belong in 1A / Sheet 2
+inv_exact = cands_1bc["Voucher Number"] == cands_1bc["invoice_number"]
+std_exact = (
+    cands_1bc["std_voucher"].notna() &
+    cands_1bc["std_invoice"].notna() &
+    (cands_1bc["std_voucher"] == cands_1bc["std_invoice"])
+)
+cands_1bc = cands_1bc[~(inv_exact | std_exact)].copy()
+
+# -------- Uniqueness: count (identity, taxable_value) occurrences in each pool --------
+books_gstin_tv  = books_1bc.groupby(["gstin",    "taxable_value"])["books_group_idx"].count().to_dict()
+books_supp_tv   = books_1bc.groupby(["Supplier", "taxable_value"])["books_group_idx"].count().to_dict()
+gstr2b_gstin_tv = gstr2b_1bc.groupby(["gstin",   "taxable_value"])["gstr2b_idx"].count().to_dict()
+gstr2b_supp_tv  = gstr2b_1bc.groupby(["supplier","taxable_value"])["gstr2b_idx"].count().to_dict()
+
+def _get_counts(row):
+    if row["match_branch"] == "gstin":
+        b = books_gstin_tv.get( (row["gstin"],    row["taxable_value_b"]), 1)
+        g = gstr2b_gstin_tv.get((row["gstin"],    row["taxable_value_g"]), 1)
+    else:
+        b = books_supp_tv.get(  (row["Supplier"], row["taxable_value_b"]), 1)
+        g = gstr2b_supp_tv.get( (row["supplier"], row["taxable_value_g"]), 1)
+    return pd.Series({"b_count": b, "g_count": g})
+
+cands_1bc[["b_count", "g_count"]] = cands_1bc.apply(_get_counts, axis=1)
+cands_1bc["is_unique"] = (cands_1bc["b_count"] == 1) & (cands_1bc["g_count"] == 1)
+
+# -------- 1B: unique candidates → greedy one-to-one auto-match --------
+unique_1bc = cands_1bc[cands_1bc["is_unique"]].copy()
+unique_1bc["total_money_diff"] = (
+    (unique_1bc["taxable_value_b"] - unique_1bc["taxable_value_g"]).abs() +
+    (unique_1bc["cgst_b"]          - unique_1bc["cgst_g"]).abs()          +
+    (unique_1bc["sgst_b"]          - unique_1bc["sgst_g"]).abs()          +
+    (unique_1bc["igst_b"]          - unique_1bc["igst_g"]).abs()
+)
+unique_1bc["date_diff_days"] = (
+    unique_1bc["date_b"] - unique_1bc["date_g"]
+).abs().dt.days.fillna(999999)
+
+unique_1bc = unique_1bc.sort_values(
+    by=["total_money_diff", "date_diff_days"], ascending=[True, True]
+)
+
+accepted_1b    = []
+used_books_1b  = set()
+used_gstr2b_1b = set()
+rank_cols_1b   = ["total_money_diff", "date_diff_days"]
+
+for bid, group in unique_1bc.groupby("books_group_idx", sort=False):
+    avail = group[
+        ~group["books_group_idx"].isin(used_books_1b) &
+        ~group["gstr2b_idx"].isin(used_gstr2b_1b)
+    ]
+    if avail.empty:
+        continue
+    best = avail.iloc[0]
+    tied = avail[(avail[rank_cols_1b] == best[rank_cols_1b]).all(axis=1)]
+    if len(tied) > 1:
+        continue  # genuine tie → leave in pool, falls through to Sheet 2/3
+    accepted_1b.append(best)
+    used_books_1b.add(best["books_group_idx"])
+    used_gstr2b_1b.add(best["gstr2b_idx"])
+
+sheet1b = pd.DataFrame(accepted_1b)
+if not sheet1b.empty:
+    sheet1b["flag"] = "invoice_differs"
+    sheet1b["step"] = "sheet1b"
+
+# -------- 1C: collision candidates → blue --------
+sheet1c_blue = cands_1bc[~cands_1bc["is_unique"]].copy()
+if not sheet1c_blue.empty:
+    sheet1c_blue["flag"] = "blue"
+    sheet1c_blue["step"] = "sheet1c"
+
+# Update global pools (only 1B matches are consumed; 1C rows stay for Sheet 2/3)
+used_1b_books  = set(sheet1b["books_group_idx"]) if not sheet1b.empty else set()
+used_1b_gstr2b = set(sheet1b["gstr2b_idx"])      if not sheet1b.empty else set()
+
+books_pool  = books_pool[~books_pool["books_group_idx"].isin(used_1b_books)].copy()
+gstr2b_pool = gstr2b_pool[~gstr2b_pool["gstr2b_idx"].isin(used_1b_gstr2b)].copy()
+
+print(f"Sheet 1B auto-matches:                {len(sheet1b)}")
+print(f"Sheet 1C blue (collision candidates): {len(sheet1c_blue)}")
+print(f"Books groups remaining: {len(books_pool)}")
+print(f"2B remaining:           {len(gstr2b_pool)}")
+
+
+=== CELL 32 markdown ===
+# **Sheet 2 — Standardized Invoice**
+
+=== CELL 33 code ===
+import re
+
+def standardize_invoice(val):
+    """Uppercase, strip spaces/slashes/hyphens, drop leading zeros."""
+    if pd.isna(val) or str(val).strip() in ("", "<NA>", "nan"):
+        return None
+    s = re.sub(r"[\s/\-]+", "", str(val)).upper().lstrip("0")
+    return s if s else None
+
+books_pool2 = books_pool.copy()
+gstr2b_pool2 = gstr2b_pool.copy()
+
+books_pool2["std_voucher"] = books_pool2["Voucher Number"].apply(standardize_invoice)
+gstr2b_pool2["std_invoice"] = gstr2b_pool2["invoice_number"].apply(standardize_invoice)
+
+# Branch 1: GSTIN + std_invoice
+merge2_gstin_invoice = books_pool2.merge(
+    gstr2b_pool2,
+    left_on=["gstin", "std_voucher"],
+    right_on=["gstin", "std_invoice"],
+    how="inner",
+    suffixes=("_b", "_g")
+)
+
+# Branch 2: std_invoice + supplier
+merge2_invoice_supplier = books_pool2.merge(
+    gstr2b_pool2,
+    left_on=["std_voucher", "Supplier"],
+    right_on=["std_invoice", "supplier"],
+    how="inner",
+    suffixes=("_b", "_g")
+)
+
+sheet2_candidates = pd.concat(
+    [merge2_gstin_invoice, merge2_invoice_supplier], ignore_index=True
+).drop_duplicates(subset=["books_group_idx", "gstr2b_idx"])
+
+# Money filter
+taxable_match2 = abs(sheet2_candidates["taxable_value_b"] - sheet2_candidates["taxable_value_g"]) <= TOL
+component_tax_match2 = (
+    (abs(sheet2_candidates["cgst_b"] - sheet2_candidates["cgst_g"]) <= TOL) &
+    (abs(sheet2_candidates["sgst_b"] - sheet2_candidates["sgst_g"]) <= TOL) &
+    (abs(sheet2_candidates["igst_b"] - sheet2_candidates["igst_g"]) <= TOL)
+)
+total_tax_match2 = abs(
+    (sheet2_candidates["cgst_b"] + sheet2_candidates["sgst_b"] + sheet2_candidates["igst_b"]) -
+    (sheet2_candidates["cgst_g"] + sheet2_candidates["sgst_g"] + sheet2_candidates["igst_g"])
+) <= TOL
+
+sheet2_candidates = sheet2_candidates[
+    taxable_match2 & (component_tax_match2 | total_tax_match2)
+].copy()
+
+# Ranking (same as Sheet 1A)
+sheet2_candidates["invoice_exact"] = (
+    sheet2_candidates["Voucher Number"] == sheet2_candidates["invoice_number"]
+)
+sheet2_candidates["gstin_exact"] = sheet2_candidates["gstin"].notna()
+sheet2_candidates["supplier_exact"] = (
+    sheet2_candidates["Supplier"] == sheet2_candidates["supplier"]
+)
+sheet2_candidates["total_money_diff"] = (
+    (sheet2_candidates["taxable_value_b"] - sheet2_candidates["taxable_value_g"]).abs() +
+    (sheet2_candidates["cgst_b"] - sheet2_candidates["cgst_g"]).abs() +
+    (sheet2_candidates["sgst_b"] - sheet2_candidates["sgst_g"]).abs() +
+    (sheet2_candidates["igst_b"] - sheet2_candidates["igst_g"]).abs()
+)
+sheet2_candidates["date_diff_days"] = (
+    sheet2_candidates["date_b"] - sheet2_candidates["date_g"]
+).abs().dt.days.fillna(999999)
+
+complete_cols2 = ["gstin", "Voucher Number", "Supplier", "invoice_number", "supplier"]
+sheet2_candidates["blank_count"] = sheet2_candidates[complete_cols2].isna().sum(axis=1)
+
+sheet2_candidates = sheet2_candidates.sort_values(
+    by=["invoice_exact", "gstin_exact", "supplier_exact", "total_money_diff", "date_diff_days", "blank_count"],
+    ascending=[False, False, False, True, True, True]
+)
+
+accepted_rows2 = []
+needs_review_sheet2 = []
+used_books2 = set()
+used_gstr2b2 = set()
+
+rank_cols2 = ["invoice_exact", "gstin_exact", "supplier_exact", "total_money_diff", "date_diff_days", "blank_count"]
+
+for books_id, group in sheet2_candidates.groupby("books_group_idx", sort=False):
+    available = group[
+        ~group["books_group_idx"].isin(used_books2) &
+        ~group["gstr2b_idx"].isin(used_gstr2b2)
+    ]
+    if available.empty:
+        continue
+    best = available.iloc[0]
+    tied_best = available[(available[rank_cols2] == best[rank_cols2]).all(axis=1)]
+    if len(tied_best) > 1:
+        needs_review_sheet2.append(tied_best)
+        continue
+    accepted_rows2.append(best)
+    used_books2.add(best["books_group_idx"])
+    used_gstr2b2.add(best["gstr2b_idx"])
+
+sheet2 = pd.DataFrame(accepted_rows2)
+needs_review_sheet2 = (
+    pd.concat(needs_review_sheet2, ignore_index=True)
+    if needs_review_sheet2 else
+    pd.DataFrame(columns=sheet2_candidates.columns)
+)
+
+# Update global pools
+books_pool = books_pool[~books_pool["books_group_idx"].isin(used_books2)].copy()
+gstr2b_pool = gstr2b_pool[~gstr2b_pool["gstr2b_idx"].isin(used_gstr2b2)].copy()
+
+print(f"Sheet 2 candidates: {len(sheet2_candidates)}")
+print(f"Sheet 2 new matches: {len(sheet2)}")
+print(f"Sheet 2 needs review ties: {len(needs_review_sheet2)}")
+print(f"Books groups remaining: {len(books_pool)}")
+print(f"2B remaining: {len(gstr2b_pool)}")
+
+=== CELL 34 markdown ===
+# **Sheet 3 — (GSTIN exact or Supplier exact) + fuzzy invoice + money**
+
+=== CELL 35 code ===
+from rapidfuzz import fuzz
+
+FUZZY_THRESHOLD = 80  # % similarity on standardized invoice strings — tune if needed
+
+# -------- SHEET 3 --------
+# GSTIN exact OR supplier exact  +  fuzzy invoice  +  money
+# Auto-match : fuzzy score >= threshold AND amount unique for that identity
+# Blue       : money + identity match but invoice too different, OR collision
+
+books_3  = books_pool.copy()
+gstr2b_3 = gstr2b_pool.copy()
+books_3["std_voucher"]  = books_3["Voucher Number"].apply(standardize_invoice)
+gstr2b_3["std_invoice"] = gstr2b_3["invoice_number"].apply(standardize_invoice)
+
+# Branch A: GSTIN exact
+branch_3a = books_3.merge(gstr2b_3, on="gstin", how="inner", suffixes=("_b", "_g"))
+branch_3a["match_branch"] = "gstin"
+
+# Branch B: supplier exact
+branch_3b = books_3.merge(
+    gstr2b_3,
+    left_on="Supplier", right_on="supplier",
+    how="inner", suffixes=("_b", "_g")
+)
+branch_3b["match_branch"] = "supplier"
+branch_3b["gstin"] = branch_3b["gstin_b"]   # normalize: gstin column always present after concat
+
+cands_3 = pd.concat([branch_3a, branch_3b], ignore_index=True).drop_duplicates(
+    subset=["books_group_idx", "gstr2b_idx"]
+)
+
+# Money filter
+tv_ok   = abs(cands_3["taxable_value_b"] - cands_3["taxable_value_g"]) <= TOL
+comp_ok = (
+    (abs(cands_3["cgst_b"] - cands_3["cgst_g"]) <= TOL) &
+    (abs(cands_3["sgst_b"] - cands_3["sgst_g"]) <= TOL) &
+    (abs(cands_3["igst_b"] - cands_3["igst_g"]) <= TOL)
+)
+tot_ok  = abs(
+    (cands_3["cgst_b"] + cands_3["sgst_b"] + cands_3["igst_b"]) -
+    (cands_3["cgst_g"] + cands_3["sgst_g"] + cands_3["igst_g"])
+) <= TOL
+cands_3 = cands_3[tv_ok & (comp_ok | tot_ok)].copy()
+
+# Drop exact invoice pairs — already handled by Sheets 1/2
+inv_exact_3 = cands_3["Voucher Number"] == cands_3["invoice_number"]
+std_exact_3 = (
+    cands_3["std_voucher"].notna() &
+    cands_3["std_invoice"].notna() &
+    (cands_3["std_voucher"] == cands_3["std_invoice"])
+)
+cands_3 = cands_3[~(inv_exact_3 | std_exact_3)].copy()
+
+# Fuzzy score on standardized invoice strings
+def _fuzzy_inv(row):
+    a, b = row["std_voucher"], row["std_invoice"]
+    if not a or not b:
+        return 0.0
+    return fuzz.ratio(str(a), str(b))
+
+cands_3["invoice_fuzzy_score"] = cands_3.apply(_fuzzy_inv, axis=1)
+
+# Uniqueness check
+books_gstin_tv_3  = books_3.groupby(["gstin",    "taxable_value"])["books_group_idx"].count().to_dict()
+books_supp_tv_3   = books_3.groupby(["Supplier", "taxable_value"])["books_group_idx"].count().to_dict()
+gstr2b_gstin_tv_3 = gstr2b_3.groupby(["gstin",   "taxable_value"])["gstr2b_idx"].count().to_dict()
+gstr2b_supp_tv_3  = gstr2b_3.groupby(["supplier","taxable_value"])["gstr2b_idx"].count().to_dict()
+
+def _counts_3(row):
+    if row["match_branch"] == "gstin":
+        b = books_gstin_tv_3.get( (row["gstin"],    row["taxable_value_b"]), 1)
+        g = gstr2b_gstin_tv_3.get((row["gstin"],    row["taxable_value_g"]), 1)
+    else:
+        b = books_supp_tv_3.get(  (row["Supplier"], row["taxable_value_b"]), 1)
+        g = gstr2b_supp_tv_3.get( (row["supplier"], row["taxable_value_g"]), 1)
+    return pd.Series({"b_count": b, "g_count": g})
+
+cands_3[["b_count", "g_count"]] = cands_3.apply(_counts_3, axis=1)
+cands_3["is_unique"] = (cands_3["b_count"] == 1) & (cands_3["g_count"] == 1)
+
+# Auto-match: fuzzy hit AND unique
+auto_3 = cands_3[
+    (cands_3["invoice_fuzzy_score"] >= FUZZY_THRESHOLD) & cands_3["is_unique"]
+].copy()
+
+auto_3["total_money_diff"] = (
+    (auto_3["taxable_value_b"] - auto_3["taxable_value_g"]).abs() +
+    (auto_3["cgst_b"]          - auto_3["cgst_g"]).abs()          +
+    (auto_3["sgst_b"]          - auto_3["sgst_g"]).abs()          +
+    (auto_3["igst_b"]          - auto_3["igst_g"]).abs()
+)
+auto_3["date_diff_days"] = (
+    auto_3["date_b"] - auto_3["date_g"]
+).abs().dt.days.fillna(999999)
+
+auto_3 = auto_3.sort_values(
+    by=["invoice_fuzzy_score", "total_money_diff", "date_diff_days"],
+    ascending=[False, True, True]
+)
+
+# Greedy one-to-one selection
+accepted_3    = []
+used_books_3  = set()
+used_gstr2b_3 = set()
+rank_cols_3   = ["invoice_fuzzy_score", "total_money_diff", "date_diff_days"]
+
+for bid, group in auto_3.groupby("books_group_idx", sort=False):
+    avail = group[
+        ~group["books_group_idx"].isin(used_books_3) &
+        ~group["gstr2b_idx"].isin(used_gstr2b_3)
+    ]
+    if avail.empty:
+        continue
+    best = avail.iloc[0]
+    tied = avail[(avail[rank_cols_3] == best[rank_cols_3]).all(axis=1)]
+    if len(tied) > 1:
+        continue  # genuine tie → falls through to Sheet 4/5
+    accepted_3.append(best)
+    used_books_3.add(best["books_group_idx"])
+    used_gstr2b_3.add(best["gstr2b_idx"])
+
+sheet3 = pd.DataFrame(accepted_3)
+if not sheet3.empty:
+    sheet3["flag"] = "invoice_fuzzy"
+    sheet3["step"] = "sheet3"
+
+# Blue: invoice too different (score < threshold) OR collision (amount not unique)
+# Advisory only — pairs are NOT removed from pool; they flow to Sheet 4/5 still
+sheet3_blue = cands_3[
+    (cands_3["invoice_fuzzy_score"] < FUZZY_THRESHOLD) |
+    (~cands_3["is_unique"])
+].copy()
+if not sheet3.empty:
+    sheet3_blue = sheet3_blue[~sheet3_blue["gstr2b_idx"].isin(used_gstr2b_3)]
+if not sheet3_blue.empty:
+    sheet3_blue["flag"] = "blue"
+    sheet3_blue["step"] = "sheet3"
+
+# Update pools — only auto-matched rows consumed
+books_pool  = books_pool[~books_pool["books_group_idx"].isin(used_books_3)].copy()
+gstr2b_pool = gstr2b_pool[~gstr2b_pool["gstr2b_idx"].isin(used_gstr2b_3)].copy()
+
+print(f"Sheet 3 auto-matches (fuzzy invoice): {len(sheet3)}")
+print(f"Sheet 3 blue (review):                {len(sheet3_blue)}")
+print(f"Books groups remaining: {len(books_pool)}")
+print(f"2B remaining:           {len(gstr2b_pool)}")
+
+
+=== CELL 36 code ===
+from rapidfuzz import fuzz
+
+SUPPLIER_FUZZY_THRESHOLD = 85  # % similarity on supplier name — tune if needed
+
+# -------- SHEET 4 --------
+# fuzzy supplier + fuzzy invoice + money
+# Auto-match (proposal): both scores >= threshold AND amount unique
+# Blue: fuzzy supplier matches but invoice too different, OR collision
+
+books_4  = books_pool.copy()
+gstr2b_4 = gstr2b_pool.copy()
+books_4["std_voucher"]  = books_4["Voucher Number"].apply(standardize_invoice)
+gstr2b_4["std_invoice"] = gstr2b_4["invoice_number"].apply(standardize_invoice)
+
+# Cross-join on money tolerance — only keep pairs within ₹2 taxable value.
+# Full cross-join is too large; pre-filter by taxable_value bucket first.
+books_4["tv_round"] = books_4["taxable_value"].round(0)
+gstr2b_4["tv_round"] = gstr2b_4["taxable_value"].round(0)
+
+# Merge on rounded taxable value to limit candidate space, then money-filter properly
+pre = books_4.merge(gstr2b_4, on="tv_round", how="inner", suffixes=("_b", "_g"))
+
+tv_ok   = abs(pre["taxable_value_b"] - pre["taxable_value_g"]) <= TOL
+comp_ok = (
+    (abs(pre["cgst_b"] - pre["cgst_g"]) <= TOL) &
+    (abs(pre["sgst_b"] - pre["sgst_g"]) <= TOL) &
+    (abs(pre["igst_b"] - pre["igst_g"]) <= TOL)
+)
+tot_ok  = abs(
+    (pre["cgst_b"] + pre["sgst_b"] + pre["igst_b"]) -
+    (pre["cgst_g"] + pre["sgst_g"] + pre["igst_g"])
+) <= TOL
+cands_4 = pre[tv_ok & (comp_ok | tot_ok)].copy()
+
+# Drop pairs where supplier is already exact (Sheet 3 would have caught those)
+exact_supplier = cands_4["Supplier"] == cands_4["supplier"]
+cands_4 = cands_4[~exact_supplier].copy()
+
+# Drop invoice-exact pairs
+inv_exact_4 = cands_4["Voucher Number"] == cands_4["invoice_number"]
+std_exact_4 = (
+    cands_4["std_voucher"].notna() &
+    cands_4["std_invoice"].notna() &
+    (cands_4["std_voucher"] == cands_4["std_invoice"])
+)
+cands_4 = cands_4[~(inv_exact_4 | std_exact_4)].copy()
+
+# Compute fuzzy scores
+def _scores_4(row):
+    sup_score = fuzz.token_sort_ratio(str(row["Supplier"]), str(row["supplier"]))
+    a, b = row["std_voucher"], row["std_invoice"]
+    inv_score = fuzz.ratio(str(a), str(b)) if (a and b) else 0.0
+    return pd.Series({"supplier_fuzzy_score": sup_score, "invoice_fuzzy_score": inv_score})
+
+cands_4[["supplier_fuzzy_score", "invoice_fuzzy_score"]] = cands_4.apply(_scores_4, axis=1)
+
+# Keep only rows where supplier is fuzzy-close enough to be worth considering
+cands_4 = cands_4[cands_4["supplier_fuzzy_score"] >= SUPPLIER_FUZZY_THRESHOLD].copy()
+
+# Uniqueness check (keyed on supplier name since no exact GSTIN join here)
+books_supp_tv_4   = books_4.groupby(["Supplier", "taxable_value"])["books_group_idx"].count().to_dict()
+gstr2b_supp_tv_4  = gstr2b_4.groupby(["supplier","taxable_value"])["gstr2b_idx"].count().to_dict()
+
+def _counts_4(row):
+    b = books_supp_tv_4.get( (row["Supplier"], row["taxable_value_b"]), 1)
+    g = gstr2b_supp_tv_4.get((row["supplier"], row["taxable_value_g"]), 1)
+    return pd.Series({"b_count": b, "g_count": g})
+
+cands_4[["b_count", "g_count"]] = cands_4.apply(_counts_4, axis=1)
+cands_4["is_unique"] = (cands_4["b_count"] == 1) & (cands_4["g_count"] == 1)
+
+# Auto-match proposals: both fuzzy scores pass AND unique
+auto_4 = cands_4[
+    (cands_4["invoice_fuzzy_score"] >= FUZZY_THRESHOLD) & cands_4["is_unique"]
+].copy()
+
+auto_4["total_money_diff"] = (
+    (auto_4["taxable_value_b"] - auto_4["taxable_value_g"]).abs() +
+    (auto_4["cgst_b"]          - auto_4["cgst_g"]).abs()          +
+    (auto_4["sgst_b"]          - auto_4["sgst_g"]).abs()          +
+    (auto_4["igst_b"]          - auto_4["igst_g"]).abs()
+)
+auto_4["date_diff_days"] = (
+    auto_4["date_b"] - auto_4["date_g"]
+).abs().dt.days.fillna(999999)
+
+auto_4 = auto_4.sort_values(
+    by=["supplier_fuzzy_score", "invoice_fuzzy_score", "total_money_diff", "date_diff_days"],
+    ascending=[False, False, True, True]
+)
+
+# Greedy one-to-one selection
+accepted_4    = []
+used_books_4  = set()
+used_gstr2b_4 = set()
+rank_cols_4   = ["supplier_fuzzy_score", "invoice_fuzzy_score", "total_money_diff", "date_diff_days"]
+
+for bid, group in auto_4.groupby("books_group_idx", sort=False):
+    avail = group[
+        ~group["books_group_idx"].isin(used_books_4) &
+        ~group["gstr2b_idx"].isin(used_gstr2b_4)
+    ]
+    if avail.empty:
+        continue
+    best = avail.iloc[0]
+    tied = avail[(avail[rank_cols_4] == best[rank_cols_4]).all(axis=1)]
+    if len(tied) > 1:
+        continue  # genuine tie → Sheet 5 / unmatched
+    accepted_4.append(best)
+    used_books_4.add(best["books_group_idx"])
+    used_gstr2b_4.add(best["gstr2b_idx"])
+
+sheet4 = pd.DataFrame(accepted_4)
+if not sheet4.empty:
+    sheet4["flag"]  = "fuzzy_supplier_invoice"
+    sheet4["step"]  = "sheet4"
+
+# Blue: fuzzy supplier matches but invoice too different, OR collision
+sheet4_blue = cands_4[
+    (cands_4["invoice_fuzzy_score"] < FUZZY_THRESHOLD) |
+    (~cands_4["is_unique"])
+].copy()
+if not sheet4.empty:
+    sheet4_blue = sheet4_blue[~sheet4_blue["gstr2b_idx"].isin(used_gstr2b_4)]
+if not sheet4_blue.empty:
+    sheet4_blue["flag"] = "blue"
+    sheet4_blue["step"] = "sheet4"
+
+# Update pools
+books_pool  = books_pool[~books_pool["books_group_idx"].isin(used_books_4)].copy()
+gstr2b_pool = gstr2b_pool[~gstr2b_pool["gstr2b_idx"].isin(used_gstr2b_4)].copy()
+
+print(f"Sheet 4 auto-matches (fuzzy supplier+invoice): {len(sheet4)}")
+print(f"Sheet 4 blue (review):                         {len(sheet4_blue)}")
+print(f"Books groups remaining: {len(books_pool)}")
+print(f"2B remaining:           {len(gstr2b_pool)}")
+
+
+=== CELL 37 code ===
+books_pool
+
+=== CELL 38 code ===
+gstr2b_pool
+
+=== CELL 39 code ===
+import json
+import asyncio
+import os
+import re
+from openai import AsyncOpenAI
+from dotenv import load_dotenv
+
+
+# ======================================================================
+# SHEET 5 — AI IDENTITY MATCH
+# ======================================================================
+# Purpose:
+#   Catch hard cases that fuzzy string matching can't resolve.
+#   Examples: "L&T" ↔ "LARSEN AND TOUBRO LIMITED", abbreviations,
+#   brand vs legal name, transliterations.
+#
+# How it works:
+#   1. Build candidate pairs where money already matches within ₹2
+#   2. For each pair, ask the AI: "is this the same supplier?"
+#   3. AI returns JSON: {likely_match, confidence, reason}
+#   4. High-confidence results → proposals  (Sheet 6 finalises them)
+#   5. Low-confidence results  → blue list  (human review)
+#
+# Design rules (design.md §5.5):
+#   - temperature=0: deterministic, same input always gives same output
+#   - Pre-filter first: AI never sees every-row-vs-every-row
+#   - Log exact input AND output for every single call (audit trail)
+#   - Confidence below threshold → blue, never auto-sealed
+# ======================================================================
+load_dotenv(r"d:\code_files\CA\GST_reconciliation\.env")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")  # ← paste your key here
+AI_MODEL           = "google/gemini-2.5-flash-lite"   # ← verify exact model ID on openrouter.ai/models
+AI_CONF_THRESHOLD  = 0.85   # confidence >= this → proposal; below this → blue
+
+# OpenAI-compatible client pointed at OpenRouter
+client = AsyncOpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=OPENROUTER_API_KEY,
+)
+
+TOL = 2
+
+# -----------------------------------------------------------------------
+# STEP 1: Build candidate pairs
+# -----------------------------------------------------------------------
+# We pre-filter by money BEFORE calling the AI.
+# Merging on rounded taxable value limits the candidate space —
+# the AI only ever sees pairs that are already close on money.
+
+# Round taxable value to nearest rupee
+books_5 = books_pool.copy()
+gstr2b_5 = gstr2b_pool.copy()
+
+books_5["tv_round"] = books_5["taxable_value"].round(0).astype("Int64")
+gstr2b_5["tv_round"] = gstr2b_5["taxable_value"].round(0).astype("Int64")
+
+# Expand each books row to nearby rounded buckets.
+# Since TOL = 2, check current bucket plus +/- 2 rupees.
+bucket_offsets = range(-TOL, TOL + 1)
+
+books_5_expanded = books_5.loc[books_5.index.repeat(len(bucket_offsets))].copy()
+books_5_expanded["tv_bucket"] = [
+    tv + offset
+    for tv in books_5["tv_round"]
+    for offset in bucket_offsets
+]
+
+gstr2b_5["tv_bucket"] = gstr2b_5["tv_round"]
+
+# Pre-join on nearby taxable-value buckets
+pre_5 = books_5_expanded.merge(
+    gstr2b_5,
+    on="tv_bucket",
+    how="inner",
+    suffixes=("_b", "_g")
+)
+
+# Remove duplicates created by overlapping buckets
+pre_5 = pre_5.drop_duplicates(
+    subset=["books_group_idx", "gstr2b_idx"]
+).copy()
+
+# Now apply the actual strict design rule
+tv_ok_5 = abs(pre_5["taxable_value_b"] - pre_5["taxable_value_g"]) <= TOL
+
+comp_ok_5 = (
+    (abs(pre_5["cgst_b"] - pre_5["cgst_g"]) <= TOL) &
+    (abs(pre_5["sgst_b"] - pre_5["sgst_g"]) <= TOL) &
+    (abs(pre_5["igst_b"] - pre_5["igst_g"]) <= TOL)
+)
+
+tot_ok_5 = abs(
+    (pre_5["cgst_b"] + pre_5["sgst_b"] + pre_5["igst_b"]) -
+    (pre_5["cgst_g"] + pre_5["sgst_g"] + pre_5["igst_g"])
+) <= TOL
+
+cands_5 = pre_5[tv_ok_5 & (comp_ok_5 | tot_ok_5)].copy()
+
+print(f"Sheet 5 — candidate pairs to send to AI: {len(cands_5)}")
+
+# -----------------------------------------------------------------------
+# STEP 2: System prompt
+# -----------------------------------------------------------------------
+# We tell the model exactly what to return so we can parse it reliably.
+# Strict JSON-only output. No markdown, no explanation outside the JSON.
+
+SYSTEM_PROMPT = (
+    "You are a GST reconciliation assistant for Indian businesses.\n\n"
+    "You receive one possible invoice pair: one record from internal books and one record from GSTR-2B.\n"
+    "Your job is to decide whether they are likely the SAME real-world invoice/supplier pair.\n\n"
+
+    "IMPORTANT MATCHING PRINCIPLE:\n"
+    "- Money is a hard gate: if taxable_diff or all tax differences are clearly outside tolerance, return no-match.\n"
+    "- Money matching alone is NOT enough to match.\n"
+    "- There must also be identity support from supplier name, invoice number, GST/business identity clues, or a strong abbreviation/legal-name relationship.\n"
+    "- When uncertain, return no-match. A missed match is safer than a wrong match.\n\n"
+
+    "FINANCIAL RULES:\n"
+    "- Differences of 0, 1, or 2 rupees are acceptable rounding differences.\n"
+    "- Small differences in CGST/SGST/IGST may be acceptable if total tax appears effectively the same.\n"
+    "- If money differences are large or inconsistent, return likely_match=false even if names look similar.\n"
+    "- Never use matching money by itself as the reason for a match.\n\n"
+
+    "INVOICE NUMBER RULES:\n"
+    "- Exact invoice number match is strong evidence.\n"
+    "- Standardized invoice match is strong evidence: ignore spaces, hyphens, slashes, case, and leading zeros.\n"
+    "- Prefix/suffix differences can still match when the rest is clearly the same, e.g. SPL-892 vs MSPL-892, FY/24-25/946 vs 946.\n"
+    "- Internal voucher numbers may look completely different from the supplier invoice number; in that case supplier identity and money must be very strong.\n"
+    "- If invoice numbers are different and supplier identity is weak, return no-match or low confidence.\n\n"
+
+    "SUPPLIER NAME RULES — WHEN TO MATCH:\n"
+    "- Known abbreviations or acronyms: L&T = Larsen and Toubro, HUL = Hindustan Unilever.\n"
+    "- Only formatting differs: M/S prefix, Limited/Ltd suffix, & vs and, hyphen vs space, extra spaces.\n"
+    "- Minor singular/plural variation: Hardware vs Hardwares.\n"
+    "- Clear typo where the rest of the name is identical.\n"
+    "- Transliteration variation of the same name: Sri vs Shri.\n"
+    "- Bank entries: books may record a bank as 'KBL OD 0777000100021201' while GSTR-2B has 'KARNATAKA BANK LIMITED'. "
+    "Known bank abbreviations include SBI, KBL, HDFC, ICICI, AXIS, BOI, PNB, BOB, CANARA, KOTAK, YES, IDFC, IOB, UCO, UBI.\n\n"
+
+    "SUPPLIER NAME RULES — WHEN NOT TO MATCH:\n"
+    "- Business-type word differs: TYRES vs MOTORS, ELECTRICALS vs PLYWOOD, STEEL vs CEMENT.\n"
+    "- Short generic initials alone are not enough: NK, SR, RK with different suffixes.\n"
+    "- Personal names with one-letter difference and no other support: SONA vs SOMA.\n"
+    "- Common first word followed by different entity words: Akshaya Traders vs Akshaya Cement.\n\n"
+
+    "CONFIDENCE GUIDANCE:\n"
+    "- 0.95-1.00: supplier identity is clearly same and invoice/money also support it.\n"
+    "- 0.85-0.94: strong likely match, minor invoice/name formatting issue.\n"
+    "- 0.60-0.84: possible match but needs human review.\n"
+    "- below 0.60: weak or unsafe match.\n\n"
+
+    "Respond ONLY with valid JSON, no extra text, no markdown:\n"
+    '{"likely_match": true or false, "confidence": 0.0 to 1.0, "reason": "one short sentence"}'
+
+    "\n\nEXAMPLE OUTPUTS:\n"
+    'For a confident match:\n'
+    '{"likely_match": true, "confidence": 0.92, "reason": "Supplier abbreviation matches the legal name and invoice number is a close variant."}\n'
+    'For a possible but unsafe match:\n'
+    '{"likely_match": true, "confidence": 0.72, "reason": "Money matches and supplier names look related, but invoice numbers differ significantly."}\n'
+    'For a no-match:\n'
+    '{"likely_match": false, "confidence": 0.18, "reason": "Supplier business type and invoice number do not support the same entity."}\n\n'
+    "Now respond ONLY with one valid JSON object for the given input."
+)
+# -----------------------------------------------------------------------
+# STEP 3: AI call function
+# -----------------------------------------------------------------------
+
+def clean_supplier_name(name):
+    # Remove Excel carriage-return artifacts (_x000D_, _X000D_)
+    name = re.sub(r'_[xX]000[dD]_', '', str(name))
+    # Remove actual newlines and carriage returns
+    name = name.replace('\r', '').replace('\n', '').strip()
+    return name
+
+async def ask_ai_sheet5(sem, row):
+    async with sem:
+        payload = {
+            "books_supplier":  clean_supplier_name(str(row["Supplier"])),
+            "2b_supplier":     clean_supplier_name(str(row["supplier"])),
+            "books_invoice":   str(row["Voucher Number"]),
+            "2b_invoice":      str(row["invoice_number"]),
+            "taxable_diff":    round(float(row["taxable_value_b"] - row["taxable_value_g"]), 2),
+            "cgst_diff":       round(float(row["cgst_b"]          - row["cgst_g"]),          2),
+            "sgst_diff":       round(float(row["sgst_b"]          - row["sgst_g"]),          2),
+            "igst_diff":       round(float(row["igst_b"]          - row["igst_g"]),          2),
+        }
+        user_content = json.dumps(payload, ensure_ascii=False)
+
+        try:
+            response = await client.chat.completions.create(
+                model=AI_MODEL,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user",   "content": user_content},
+                ],
+                temperature=0,
+            )
+
+            raw = response.choices[0].message.content.strip()
+            clean = re.sub(r"^```[a-z]*\n?", "", raw).rstrip("` \n")
+            clean = re.sub(r'[\x00-\x1f\x7f]', ' ', clean)
+
+            try:
+                parsed = json.loads(clean)
+            except json.JSONDecodeError:
+                m = re.search(r'\{.*?\}', clean, re.DOTALL)
+                if m:
+                    parsed = json.loads(m.group())
+                else:
+                    raise
+
+            result = {
+                "likely_match": bool(parsed.get("likely_match", False)),
+                "confidence":   float(parsed.get("confidence", 0.0)),
+                "reason":       str(parsed.get("reason", "")),
+                "ai_input":     user_content,
+                "raw_response": raw,
+                "error":        None,
+            }
+
+        except Exception as e:
+            result = {
+                "likely_match": False,
+                "confidence":   0.0,
+                "reason":       "",
+                "ai_input":     user_content,
+                "raw_response": "",
+                "error":        str(e),
+            }
+
+        return {**row.to_dict(), **result}
+
+
+
+# -----------------------------------------------------------------------
+# STEP 4: Run AI on every candidate pair
+# -----------------------------------------------------------------------
+
+sem = asyncio.Semaphore(10)
+tasks = [ask_ai_sheet5(sem, row) for _, row in cands_5.iterrows()]
+
+print(f"Sending {len(tasks)} pairs to AI (10 concurrent)...")
+ai_results = await asyncio.gather(*tasks)
+print("Done.")
+
+
+
+# -----------------------------------------------------------------------
+# STEP 5: Split results into proposals / blue / no-match
+# -----------------------------------------------------------------------
+# Sheet 5 does NOT consume rows from the pool here.
+# It only produces proposals. Sheet 6 does the final greedy one-to-one merge.
+
+sheet5_all = pd.DataFrame(ai_results)
+sheet5_all["step"] = "sheet5_ai"
+
+# High-confidence positive → proposal for Sheet 6 to accept
+sheet5_proposals = sheet5_all[
+    sheet5_all["likely_match"] & (sheet5_all["confidence"] >= AI_CONF_THRESHOLD)
+].copy()
+sheet5_proposals["flag"] = "ai_match"
+
+# Low-confidence positive → human should confirm before we seal it
+sheet5_blue = sheet5_all[
+    sheet5_all["likely_match"] & (sheet5_all["confidence"] < AI_CONF_THRESHOLD)
+].copy()
+sheet5_blue["flag"] = "blue"
+
+# AI said no → stays in unmatched pool, Sheet 6 will list it
+sheet5_no_match = sheet5_all[~sheet5_all["likely_match"]].copy()
+
+# Any API errors — print so you can diagnose (wrong key, wrong model name, etc.)
+sheet5_errors = sheet5_all[sheet5_all["error"].notna()].copy()
+
+print(f"\nSheet 5 results:")
+print(f"  Proposals (confident AI match): {len(sheet5_proposals)}")
+print(f"  Blue (low confidence):          {len(sheet5_blue)}")
+print(f"  No match:                       {len(sheet5_no_match)}")
+if len(sheet5_errors) > 0:
+    print(f"\n  ⚠ Errors ({len(sheet5_errors)} calls failed) — check API key / model ID:")
+    print(sheet5_errors[["Supplier", "supplier", "error"]].to_string())
+
+
+=== CELL 40 code ===
+sheet5_all.columns
+
+=== CELL 41 code ===
+sheet5_all[["Supplier", "supplier", "Voucher Number", "invoice_number", "likely_match", "confidence", "reason"]].head(50)
+
+=== CELL 42 code ===
+sheet5_all[["supplier"]]
+

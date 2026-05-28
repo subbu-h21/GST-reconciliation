@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GST Reconciliation</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 48px 16px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      padding: 40px;
+      width: 100%;
+      max-width: 680px;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      font-size: 0.875rem;
+      color: #6b7280;
+      margin-bottom: 32px;
+    }
+
+    .upload-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 520px) { .upload-grid { grid-template-columns: 1fr; } }
+
+    .upload-zone {
+      border: 2px dashed #d1d5db;
+      border-radius: 12px;
+      padding: 24px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: #6366f1;
+      background: #f5f3ff;
+    }
+
+    .upload-zone.has-file {
+      border-color: #10b981;
+      background: #f0fdf4;
+    }
+
+    .upload-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .upload-icon { font-size: 1.75rem; margin-bottom: 8px; }
+
+    .upload-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #374151;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+
+    .upload-hint {
+      font-size: 0.75rem;
+      color: #9ca3af;
+    }
+
+    .file-name {
+      font-size: 0.78rem;
+      color: #10b981;
+      font-weight: 500;
+      margin-top: 6px;
+      word-break: break-all;
+    }
+
+    /* ── Column Mapping ───────────────────────────────────────── */
+
+    .mapping-wrap {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 24px;
+    }
+
+    .mapping-title-row {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .mapping-title {
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: #374151;
+    }
+
+    .mapping-subtitle {
+      font-size: 0.75rem;
+      color: #9ca3af;
+    }
+
+    .header-row-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding-bottom: 14px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid #e2e8f0;
+      flex-wrap: wrap;
+    }
+
+    .header-row-bar label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #374151;
+      white-space: nowrap;
+    }
+
+    .hr-select {
+      padding: 5px 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      color: #374151;
+      background: #fff;
+      cursor: pointer;
+    }
+
+    .hr-hint {
+      font-size: 0.72rem;
+      color: #9ca3af;
+    }
+
+    .mapping-group-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #6b7280;
+      margin: 16px 0 8px;
+    }
+
+    .mapping-group-title:first-child { margin-top: 0; }
+
+    .mapping-note {
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: 0;
+      color: #f59e0b;
+    }
+
+    .mapping-row {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    @media (max-width: 520px) { .mapping-row { grid-template-columns: 1fr; } }
+
+    .field-label {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #374151;
+    }
+
+    .field-req { color: #ef4444; }
+
+    .field-select {
+      width: 100%;
+      padding: 7px 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      color: #374151;
+      background: #fff;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .field-select.mapped {
+      border-color: #10b981;
+      background: #f0fdf4;
+      color: #065f46;
+    }
+
+    .mapping-loading {
+      font-size: 0.8rem;
+      color: #9ca3af;
+      padding: 6px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .mapping-spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid #e5e7eb;
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+
+    .mapping-error {
+      font-size: 0.8rem;
+      color: #ef4444;
+      padding: 6px 0;
+    }
+
+    /* ── Run Button ───────────────────────────────────────────── */
+
+    .btn-run {
+      width: 100%;
+      padding: 14px;
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+    }
+
+    .btn-run:hover:not(:disabled) { background: #4f46e5; }
+    .btn-run:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Progress & Log ───────────────────────────────────────── */
+
+    .progress-wrap { display: none; margin-top: 28px; }
+
+    .progress-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid #e5e7eb;
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .progress-status {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    .log-box {
+      background: #0f172a;
+      color: #94a3b8;
+      border-radius: 10px;
+      padding: 16px;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 0.72rem;
+      line-height: 1.6;
+      max-height: 260px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .log-box .log-line { display: block; }
+    .log-box .log-line.stage { color: #818cf8; font-weight: 600; }
+    .log-box .log-line.ok    { color: #34d399; }
+    .log-box .log-line.warn  { color: #fbbf24; }
+    .log-box .log-line.error { color: #f87171; }
+
+    /* ── Result & Error ───────────────────────────────────────── */
+
+    .result-box {
+      display: none;
+      margin-top: 24px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 12px;
+      padding: 20px 24px;
+    }
+
+    .result-box h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #065f46;
+      margin-bottom: 12px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .stat {
+      background: #fff;
+      border-radius: 8px;
+      padding: 10px 14px;
+      border: 1px solid #d1fae5;
+    }
+
+    .stat-val { font-size: 1.3rem; font-weight: 700; color: #059669; }
+
+    .stat-lbl {
+      font-size: 0.7rem;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-top: 2px;
+    }
+
+    .btn-download {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      background: #059669;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+
+    .btn-download:hover { background: #047857; }
+
+    .error-box {
+      display: none;
+      margin-top: 24px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 12px;
+      padding: 16px 20px;
+      font-size: 0.85rem;
+      color: #dc2626;
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>GST Reconciliation</h1>
+  <p class="subtitle">Upload your Inward Register and GSTR-2B to generate a reconciliation report.</p>
+
+  <form id="uploadForm">
+    <div class="upload-grid">
+      <div class="upload-zone" id="zoneBooks">
+        <input type="file" name="books" id="booksInput" accept=".xlsx,.xls" />
+        <div class="upload-icon">📒</div>
+        <div class="upload-label">Inward Register</div>
+        <div class="upload-hint">Books Excel file</div>
+        <div class="file-name" id="booksName"></div>
+      </div>
+      <div class="upload-zone" id="zoneB2B">
+        <input type="file" name="b2b" id="b2bInput" accept=".xlsx,.xls" />
+        <div class="upload-icon">🏛️</div>
+        <div class="upload-label">GSTR-2B</div>
+        <div class="upload-hint">Government portal Excel</div>
+        <div class="file-name" id="b2bName"></div>
+      </div>
+    </div>
+
+    <!-- Column mapping — shown after books file is selected -->
+    <div class="mapping-wrap" id="mappingWrap" style="display:none">
+      <div class="mapping-title-row">
+        <span class="mapping-title">Column Mapping</span>
+        <span class="mapping-subtitle">Match your file's columns to the required fields</span>
+      </div>
+      <div class="header-row-bar">
+        <label for="headerRowSelect">Header row in Excel</label>
+        <select id="headerRowSelect" class="hr-select">
+          <option value="0">Row 1</option>
+          <option value="1" selected>Row 2</option>
+          <option value="2">Row 3</option>
+          <option value="3">Row 4</option>
+        </select>
+        <span class="hr-hint">Which row contains the column names?</span>
+      </div>
+      <div id="mappingGrid"></div>
+    </div>
+
+    <button type="submit" class="btn-run" id="runBtn" disabled>Run Reconciliation</button>
+  </form>
+
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-header">
+      <div class="spinner" id="spinner"></div>
+      <span class="progress-status" id="progressStatus">Running engine…</span>
+    </div>
+    <div class="log-box" id="logBox"></div>
+  </div>
+
+  <div class="result-box" id="resultBox">
+    <h3>Reconciliation complete</h3>
+    <div class="stats-grid" id="statsGrid"></div>
+    <a class="btn-download" id="downloadBtn" href="#">
+      ⬇ Download Report
+    </a>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+</div>
+
+<script>
+  // ── Field definitions ──────────────────────────────────────────────────────
+
+  const MAPPING_FIELDS = [
+    { key: "Supplier",        label: "Supplier",             required: true,  group: "required" },
+    { key: "GSTIN/UIN",       label: "GSTIN / UIN",          required: true,  group: "required" },
+    { key: "Voucher Number",  label: "Voucher / Invoice No",  required: true,  group: "required" },
+    { key: "Gross Total",     label: "Gross Total",           required: true,  group: "required" },
+    { key: "Type",            label: "Supply Type",           required: true,  group: "required" },
+    { key: "Accounting Date", label: "Invoice Date",          required: false, group: "optional" },
+    { key: "Taxable @ 0%",   label: "Taxable @ 0%",          required: false, group: "rate" },
+    { key: "Taxable @ 5%",   label: "Taxable @ 5%",          required: false, group: "rate" },
+    { key: "Taxable @ 12%",  label: "Taxable @ 12%",         required: false, group: "rate" },
+    { key: "Taxable @ 18%",  label: "Taxable @ 18%",         required: false, group: "rate" },
+    { key: "Taxable @ 28%",  label: "Taxable @ 28%",         required: false, group: "rate" },
+  ];
+
+  // ── DOM refs ───────────────────────────────────────────────────────────────
+
+  const booksInput      = document.getElementById("booksInput");
+  const b2bInput        = document.getElementById("b2bInput");
+  const runBtn          = document.getElementById("runBtn");
+  const zoneBooks       = document.getElementById("zoneBooks");
+  const zoneB2B         = document.getElementById("zoneB2B");
+  const mappingWrap     = document.getElementById("mappingWrap");
+  const mappingGrid     = document.getElementById("mappingGrid");
+  const headerRowSelect = document.getElementById("headerRowSelect");
+
+  // ── File inputs ────────────────────────────────────────────────────────────
+
+  function handleFile(input, nameEl, zone) {
+    input.addEventListener("change", () => {
+      if (input.files.length) {
+        nameEl.textContent = input.files[0].name;
+        zone.classList.add("has-file");
+      }
+      if (input === booksInput && input.files.length) {
+        fetchColumns();
+      }
+      updateRunBtn();
+    });
+  }
+
+  handleFile(booksInput, document.getElementById("booksName"), zoneBooks);
+  handleFile(b2bInput,   document.getElementById("b2bName"),   zoneB2B);
+
+  [zoneBooks, zoneB2B].forEach(zone => {
+    zone.addEventListener("dragover",  e => { e.preventDefault(); zone.classList.add("dragover"); });
+    zone.addEventListener("dragleave", () => zone.classList.remove("dragover"));
+    zone.addEventListener("drop",      () => zone.classList.remove("dragover"));
+  });
+
+  headerRowSelect.addEventListener("change", () => {
+    if (booksInput.files.length) fetchColumns();
+  });
+
+  // ── Column mapping ─────────────────────────────────────────────────────────
+
+  async function fetchColumns() {
+    mappingWrap.style.display = "block";
+    mappingGrid.innerHTML = `
+      <div class="mapping-loading">
+        <div class="mapping-spinner"></div>
+        Reading columns…
+      </div>`;
+    updateRunBtn();
+
+    const fd = new FormData();
+    fd.append("books",      booksInput.files[0]);
+    fd.append("header_row", headerRowSelect.value);
+
+    try {
+      const res  = await fetch("/columns", { method: "POST", body: fd });
+      const data = await res.json();
+      if (data.error) {
+        mappingGrid.innerHTML = `<div class="mapping-error">Could not read file: ${escHtml(data.error)}</div>`;
+        updateRunBtn();
+        return;
+      }
+      renderMapping(data.columns, data.guesses || {});
+    } catch (_) {
+      mappingGrid.innerHTML = `<div class="mapping-error">Failed to read file columns. Check that the file is a valid Excel workbook.</div>`;
+      updateRunBtn();
+    }
+  }
+
+  function renderMapping(cols, guesses) {
+    const groups = { required: [], optional: [], rate: [] };
+    MAPPING_FIELDS.forEach(f => groups[f.group].push(f));
+
+    let html = "";
+
+    function renderGroup(title, fields, note) {
+      html += `<div class="mapping-group-title">${title}`;
+      if (note) html += ` <span class="mapping-note">${note}</span>`;
+      html += `</div>`;
+      fields.forEach(f => {
+        html += `
+          <div class="mapping-row">
+            <span class="field-label">${escHtml(f.label)}${f.required ? ' <span class="field-req">*</span>' : ""}</span>
+            ${buildSelect(f.key, cols, guesses[f.key] || "")}
+          </div>`;
+      });
+    }
+
+    renderGroup("Required Fields", groups.required);
+    renderGroup("Optional", groups.optional);
+    renderGroup("Rate Columns", groups.rate, "(at least one required)");
+
+    mappingGrid.innerHTML = html;
+
+    mappingGrid.querySelectorAll(".field-select").forEach(sel => {
+      sel.classList.toggle("mapped", sel.value !== "");
+      sel.addEventListener("change", () => {
+        sel.classList.toggle("mapped", sel.value !== "");
+        updateRunBtn();
+      });
+    });
+
+    updateRunBtn();
+  }
+
+  function buildSelect(fieldKey, cols, preselect) {
+    let opts = `<option value="">— not mapped —</option>`;
+    cols.forEach(c => {
+      const sel = (c === preselect) ? " selected" : "";
+      opts += `<option value="${escHtml(c)}"${sel}>${escHtml(c)}</option>`;
+    });
+    return `<select class="field-select" data-field="${escHtml(fieldKey)}">${opts}</select>`;
+  }
+
+  function getMappingValid() {
+    const selects = mappingGrid.querySelectorAll(".field-select");
+    if (!selects.length) return false;
+
+    const mapped = {};
+    selects.forEach(sel => { mapped[sel.dataset.field] = sel.value; });
+
+    const requiredOk = MAPPING_FIELDS
+      .filter(f => f.required)
+      .every(f => mapped[f.key]);
+
+    const rateOk = MAPPING_FIELDS
+      .filter(f => f.group === "rate")
+      .some(f => mapped[f.key]);
+
+    return requiredOk && rateOk;
+  }
+
+  function getColMap() {
+    const result = {};
+    mappingGrid.querySelectorAll(".field-select").forEach(sel => {
+      if (sel.value) result[sel.dataset.field] = sel.value;
+    });
+    return result;
+  }
+
+  // ── Run button state ───────────────────────────────────────────────────────
+
+  function updateRunBtn() {
+    const filesOk   = !!(booksInput.files.length && b2bInput.files.length);
+    const mappingOk = getMappingValid();
+    runBtn.disabled = !(filesOk && mappingOk);
+  }
+
+  // ── Log rendering ──────────────────────────────────────────────────────────
+
+  function lineClass(line) {
+    if (line.startsWith("──") || line.startsWith("[Stage"))   return "stage";
+    if (line.includes("[OK]"))                                  return "ok";
+    if (line.includes("[AI warn]") || line.includes("[Flag]")) return "warn";
+    if (line.includes("error") || line.includes("Error"))     return "error";
+    return "";
+  }
+
+  let pollTimer    = null;
+  let renderedLines = 0;
+
+  function appendLog(lines) {
+    const box = document.getElementById("logBox");
+    lines.slice(renderedLines).forEach(line => {
+      const span = document.createElement("span");
+      span.className = "log-line " + lineClass(line);
+      span.textContent = line;
+      box.appendChild(span);
+      box.appendChild(document.createTextNode("\n"));
+    });
+    renderedLines = lines.length;
+    box.scrollTop = box.scrollHeight;
+  }
+
+  // ── Stats ──────────────────────────────────────────────────────────────────
+
+  function extractStats(lines) {
+    const stats = {};
+    const map = {
+      "matched:":                 "Matched",
+      "blue_review:":             "Blue Review",
+      "unmatched_books:":         "Unmatched Books",
+      "unmatched_2b:":            "Unmatched 2B",
+      "identity_money_mismatch:": "Money Mismatch",
+      "no_gstin_b2c:":            "B2C / No GSTIN",
+      "dirty_input:":             "Dirty Input",
+    };
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      Object.entries(map).forEach(([key, label]) => {
+        if (trimmed.includes(key)) {
+          const num = trimmed.match(/\d+/);
+          if (num) stats[label] = num[0];
+        }
+      });
+    });
+    return stats;
+  }
+
+  function showStats(lines, jobId) {
+    const stats = extractStats(lines);
+    const grid  = document.getElementById("statsGrid");
+    grid.innerHTML = "";
+    Object.entries(stats).forEach(([label, val]) => {
+      grid.innerHTML += `<div class="stat"><div class="stat-val">${val}</div><div class="stat-lbl">${label}</div></div>`;
+    });
+    document.getElementById("downloadBtn").href = `/download/${jobId}`;
+    document.getElementById("resultBox").style.display  = "block";
+    document.getElementById("spinner").style.display    = "none";
+    document.getElementById("progressStatus").textContent = "Done";
+  }
+
+  // ── Polling ────────────────────────────────────────────────────────────────
+
+  function poll(jobId) {
+    pollTimer = setInterval(async () => {
+      const res  = await fetch(`/status/${jobId}`);
+      const data = await res.json();
+
+      appendLog(data.log || []);
+
+      if (data.status === "done") {
+        clearInterval(pollTimer);
+        showStats(data.log || [], jobId);
+      } else if (data.status === "error") {
+        clearInterval(pollTimer);
+        document.getElementById("spinner").style.display = "none";
+        document.getElementById("progressStatus").textContent = "Failed";
+        const errBox = document.getElementById("errorBox");
+        errBox.style.display = "block";
+        errBox.textContent   = "Engine error: " + (data.error || "unknown");
+      }
+    }, 1500);
+  }
+
+  // ── Form submit ────────────────────────────────────────────────────────────
+
+  document.getElementById("uploadForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    clearInterval(pollTimer);
+    renderedLines = 0;
+
+    document.getElementById("logBox").innerHTML          = "";
+    document.getElementById("resultBox").style.display   = "none";
+    document.getElementById("errorBox").style.display    = "none";
+    document.getElementById("progressWrap").style.display = "block";
+    document.getElementById("spinner").style.display     = "inline-block";
+    document.getElementById("progressStatus").textContent = "Running engine…";
+    runBtn.disabled = true;
+
+    const form = new FormData(e.target);
+    form.append("col_map",    JSON.stringify(getColMap()));
+    form.append("header_row", headerRowSelect.value);
+
+    const res  = await fetch("/run", { method: "POST", body: form });
+    const data = await res.json();
+
+    if (data.error) {
+      document.getElementById("errorBox").style.display = "block";
+      document.getElementById("errorBox").textContent   = data.error;
+      runBtn.disabled = false;
+      return;
+    }
+
+    poll(data.job_id);
+  });
+
+  // ── Utility ────────────────────────────────────────────────────────────────
+
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+</script>
+</body>
+</html>
