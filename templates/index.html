@@ -3,70 +3,289 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GST Reconciliation</title>
+  <title>ReconcileGST — AI-Powered</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=Space+Mono&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --bg:       #080808;
+      --bg-r:     #0b0b12;
+      --border:   rgba(255,255,255,0.07);
+      --border-2: rgba(255,255,255,0.13);
+      --indigo:   #6366f1;
+      --indigo-d: #4338ca;
+      --amber:    #f59e0b;
+      --green:    #10b981;
+      --red:      #f87171;
+      --text:     rgba(255,255,255,0.90);
+      --text-2:   rgba(255,255,255,0.48);
+      --text-3:   rgba(255,255,255,0.26);
+    }
+
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    html { font-size: 17px; }
+    html, body { height: 100%; }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #f0f2f5;
-      color: #1a1a2e;
-      min-height: 100vh;
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .main-area {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    ::-webkit-scrollbar { width: 3px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+    /* ══════════════════════════════════════════════
+       LEFT PANEL
+    ══════════════════════════════════════════════ */
+
+    .left-panel {
+      width: 44%;
+      flex-shrink: 0;
+      height: 100%;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      position: relative;
+    }
+
+    .left-panel::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background:
+        radial-gradient(ellipse 70% 50% at 10% 30%, rgba(79,70,229,0.09) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 60% at 90% 75%, rgba(245,158,11,0.05) 0%, transparent 55%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .l-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 36px 52px 0;
+      position: relative;
+      z-index: 1;
+      flex-shrink: 0;
+    }
+
+    .l-brand {
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: #fff;
+      text-decoration: none;
+      letter-spacing: -0.01em;
+    }
+
+    .l-brand span { color: var(--amber); }
+
+    .l-pill {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.6rem;
+      letter-spacing: 0.08em;
+      color: var(--amber);
+      background: rgba(245,158,11,0.08);
+      border: 1px solid rgba(245,158,11,0.22);
+      border-radius: 20px;
+      padding: 3px 11px;
+    }
+
+    .l-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 52px 52px 36px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .eyebrow {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--amber);
+      letter-spacing: 0.04em;
+      margin-bottom: 26px;
+    }
+
+    .hero-title {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: clamp(2.3rem, 3.8vw, 3.4rem);
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.07;
+      letter-spacing: -0.025em;
+      margin-bottom: 28px;
+    }
+
+    .hero-title .dim { color: rgba(255,255,255,0.30); font-weight: 700; }
+
+    .hero-desc {
+      font-size: 0.9rem;
+      color: var(--text-2);
+      line-height: 1.78;
+      font-weight: 300;
+      margin-bottom: 38px;
+      max-width: 380px;
+    }
+
+    .feat-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .feat-list li {
       display: flex;
       align-items: flex-start;
-      justify-content: center;
-      padding: 48px 16px;
+      gap: 13px;
+      font-size: 0.84rem;
+      color: rgba(255,255,255,0.42);
+      line-height: 1.5;
     }
 
-    .card {
-      background: #fff;
-      border-radius: 16px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-      padding: 40px;
-      width: 100%;
-      max-width: 680px;
+    .feat-list li::before {
+      content: '';
+      width: 20px;
+      height: 1px;
+      background: var(--amber);
+      flex-shrink: 0;
+      margin-top: 0.6em;
     }
 
-    h1 {
-      font-size: 1.5rem;
+    .feat-list li strong {
+      color: rgba(255,255,255,0.78);
+      font-weight: 500;
+    }
+
+    /* ── SITE FOOTER (full-width) ─────────────────────────────── */
+
+    .site-footer {
+      flex-shrink: 0;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      padding: 14px 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .footer-brand {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.82rem;
       font-weight: 700;
-      letter-spacing: -0.02em;
-      margin-bottom: 4px;
+      color: rgba(255,255,255,0.22);
+      letter-spacing: -0.01em;
+      white-space: nowrap;
     }
 
-    .subtitle {
-      font-size: 0.875rem;
-      color: #6b7280;
-      margin-bottom: 32px;
+    .footer-brand span { color: rgba(245,158,11,0.4); }
+
+    .footer-links {
+      display: flex;
+      align-items: center;
+      gap: 6px 22px;
+      flex-wrap: wrap;
+      justify-content: center;
     }
+
+    .footer-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: rgba(255,255,255,0.34);
+      text-decoration: none;
+      font-size: 0.76rem;
+      transition: color 0.15s;
+      white-space: nowrap;
+    }
+
+    .footer-link:hover { color: rgba(255,255,255,0.70); }
+    .footer-link svg { flex-shrink: 0; opacity: 0.55; transition: opacity 0.15s; }
+    .footer-link:hover svg { opacity: 1; }
+
+    .footer-sep { color: rgba(255,255,255,0.1); font-size: 0.9rem; }
+
+    .footer-copy {
+      font-size: 0.65rem;
+      color: var(--text-3);
+      white-space: nowrap;
+    }
+
+    /* ══════════════════════════════════════════════
+       RIGHT PANEL
+    ══════════════════════════════════════════════ */
+
+    .right-panel {
+      flex: 1;
+      height: 100%;
+      overflow-y: auto;
+      background: var(--bg-r);
+      padding: 48px 52px 68px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .r-eyebrow {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--text-3);
+      letter-spacing: 0.07em;
+      margin-bottom: 28px;
+      flex-shrink: 0;
+    }
+
+    /* ── UPLOAD ZONES ─────────────────────────────────────────── */
 
     .upload-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin-bottom: 24px;
+      gap: 12px;
+      margin-bottom: 18px;
     }
 
-    @media (max-width: 520px) { .upload-grid { grid-template-columns: 1fr; } }
-
     .upload-zone {
-      border: 2px dashed #d1d5db;
+      border: 1px solid rgba(255,255,255,0.13);
       border-radius: 12px;
-      padding: 24px 16px;
+      padding: 26px 14px 20px;
       text-align: center;
       cursor: pointer;
-      transition: border-color 0.2s, background 0.2s;
+      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
       position: relative;
+      background: rgba(255,255,255,0.018);
     }
 
     .upload-zone:hover, .upload-zone.dragover {
-      border-color: #6366f1;
-      background: #f5f3ff;
+      border-color: var(--amber);
+      background: rgba(245,158,11,0.05);
+      box-shadow: 0 0 0 3px rgba(245,158,11,0.12);
     }
 
     .upload-zone.has-file {
-      border-color: #10b981;
-      background: #f0fdf4;
+      border-color: rgba(245,158,11,0.55);
+      border-style: solid;
+      background: rgba(245,158,11,0.04);
     }
 
     .upload-zone input[type="file"] {
@@ -78,203 +297,207 @@
       height: 100%;
     }
 
-    .upload-icon { font-size: 1.75rem; margin-bottom: 8px; }
+    .uz-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.04);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 12px;
+      transition: background 0.2s;
+    }
+
+    .has-file .uz-icon { background: rgba(16,185,129,0.1); }
 
     .upload-label {
-      font-size: 0.8rem;
+      font-size: 0.82rem;
       font-weight: 600;
-      color: #374151;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 4px;
+      color: rgba(255,255,255,0.78);
+      margin-bottom: 3px;
     }
 
-    .upload-hint {
-      font-size: 0.75rem;
-      color: #9ca3af;
-    }
+    .upload-hint { font-size: 0.7rem; color: var(--text-3); }
 
     .file-name {
-      font-size: 0.78rem;
-      color: #10b981;
+      font-size: 0.69rem;
+      color: var(--amber);
       font-weight: 500;
-      margin-top: 6px;
+      margin-top: 8px;
       word-break: break-all;
+      line-height: 1.3;
     }
 
-    /* ── Column Mapping ───────────────────────────────────────── */
+    /* ── COLUMN MAPPING ───────────────────────────────────────── */
 
     .mapping-wrap {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
+      background: rgba(255,255,255,0.022);
+      border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 20px 24px;
-      margin-bottom: 24px;
+      padding: 20px 22px;
+      margin-bottom: 18px;
     }
 
     .mapping-title-row {
       display: flex;
       align-items: baseline;
       gap: 10px;
-      margin-bottom: 14px;
+      margin-bottom: 15px;
     }
 
     .mapping-title {
-      font-size: 0.875rem;
-      font-weight: 700;
-      color: #374151;
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.78);
     }
 
-    .mapping-subtitle {
-      font-size: 0.75rem;
-      color: #9ca3af;
-    }
+    .mapping-subtitle { font-size: 0.72rem; color: var(--text-3); }
 
     .header-row-bar {
       display: flex;
       align-items: center;
       gap: 10px;
       padding-bottom: 14px;
-      margin-bottom: 16px;
-      border-bottom: 1px solid #e2e8f0;
+      margin-bottom: 14px;
+      border-bottom: 1px solid var(--border);
       flex-wrap: wrap;
     }
 
     .header-row-bar label {
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: #374151;
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: rgba(255,255,255,0.55);
       white-space: nowrap;
     }
 
     .hr-select {
-      padding: 5px 8px;
-      border: 1px solid #d1d5db;
-      border-radius: 6px;
-      font-size: 0.8rem;
-      color: #374151;
-      background: #fff;
+      padding: 5px 9px;
+      border: 1px solid var(--border-2);
+      border-radius: 7px;
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.78);
+      background: rgba(255,255,255,0.06);
       cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
     }
 
-    .hr-hint {
-      font-size: 0.72rem;
-      color: #9ca3af;
-    }
+    .hr-hint { font-size: 0.69rem; color: var(--text-3); }
 
     .mapping-group-title {
-      font-size: 0.7rem;
-      font-weight: 700;
+      font-size: 0.63rem;
+      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: #6b7280;
-      margin: 16px 0 8px;
+      letter-spacing: 0.09em;
+      color: var(--text-3);
+      margin: 16px 0 9px;
     }
 
     .mapping-group-title:first-child { margin-top: 0; }
-
-    .mapping-note {
-      font-weight: 400;
-      text-transform: none;
-      letter-spacing: 0;
-      color: #f59e0b;
-    }
+    .mapping-note { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--amber); }
 
     .mapping-row {
       display: grid;
-      grid-template-columns: 180px 1fr;
+      grid-template-columns: 162px 1fr;
       align-items: center;
       gap: 10px;
-      margin-bottom: 8px;
+      margin-bottom: 7px;
     }
 
-    @media (max-width: 520px) { .mapping-row { grid-template-columns: 1fr; } }
-
-    .field-label {
-      font-size: 0.8rem;
-      font-weight: 500;
-      color: #374151;
-    }
-
-    .field-req { color: #ef4444; }
+    .field-label { font-size: 0.77rem; font-weight: 400; color: rgba(255,255,255,0.50); }
+    .field-req   { color: var(--red); }
 
     .field-select {
       width: 100%;
-      padding: 7px 10px;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      font-size: 0.8rem;
-      color: #374151;
-      background: #fff;
+      padding: 6px 9px;
+      border: 1px solid var(--border-2);
+      border-radius: 7px;
+      font-size: 0.77rem;
+      color: rgba(255,255,255,0.78);
+      background: rgba(255,255,255,0.05);
       cursor: pointer;
-      transition: border-color 0.15s, background 0.15s;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .field-select option { background: #13131f; color: #fff; }
+
+    .field-select:focus {
+      outline: none;
+      border-color: var(--amber);
+      box-shadow: 0 0 0 2px rgba(245,158,11,0.18);
     }
 
     .field-select.mapped {
-      border-color: #10b981;
-      background: #f0fdf4;
-      color: #065f46;
+      border-color: rgba(245,158,11,0.5);
+      background: rgba(245,158,11,0.05);
+      color: #fcd34d;
     }
 
     .mapping-loading {
-      font-size: 0.8rem;
-      color: #9ca3af;
-      padding: 6px 0;
+      font-size: 0.77rem;
+      color: var(--text-3);
+      padding: 8px 0;
       display: flex;
       align-items: center;
       gap: 8px;
     }
 
     .mapping-spinner {
-      width: 14px;
-      height: 14px;
-      border: 2px solid #e5e7eb;
-      border-top-color: #6366f1;
+      width: 13px;
+      height: 13px;
+      border: 1.5px solid rgba(255,255,255,0.08);
+      border-top-color: var(--indigo);
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
       flex-shrink: 0;
     }
 
-    .mapping-error {
-      font-size: 0.8rem;
-      color: #ef4444;
-      padding: 6px 0;
-    }
+    .mapping-error { font-size: 0.77rem; color: var(--red); padding: 6px 0; }
 
-    /* ── Run Button ───────────────────────────────────────────── */
+    /* ── RUN BUTTON ───────────────────────────────────────────── */
 
     .btn-run {
       width: 100%;
       padding: 14px;
-      background: #6366f1;
-      color: #fff;
+      background: rgba(255,255,255,0.92);
+      color: #080808;
       border: none;
       border-radius: 10px;
-      font-size: 0.95rem;
+      font-size: 0.92rem;
       font-weight: 600;
       cursor: pointer;
-      transition: background 0.2s, opacity 0.2s;
+      transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s, background 0.2s;
+      font-family: 'DM Sans', sans-serif;
+      letter-spacing: 0.01em;
+      box-shadow: 0 4px 18px rgba(255,255,255,0.10);
     }
 
-    .btn-run:hover:not(:disabled) { background: #4f46e5; }
-    .btn-run:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-run:hover:not(:disabled) {
+      background: #ffffff;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 26px rgba(255,255,255,0.16);
+    }
 
-    /* ── Progress & Log ───────────────────────────────────────── */
+    .btn-run:active:not(:disabled) { transform: translateY(0); }
+    .btn-run:disabled { opacity: 0.28; cursor: not-allowed; box-shadow: none; }
 
-    .progress-wrap { display: none; margin-top: 28px; }
+    /* ── PROGRESS & LOG ───────────────────────────────────────── */
+
+    .progress-wrap { display: none; margin-top: 22px; }
 
     .progress-header {
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
 
     .spinner {
-      width: 18px;
-      height: 18px;
-      border: 2px solid #e5e7eb;
-      border-top-color: #6366f1;
+      width: 16px;
+      height: 16px;
+      border: 1.5px solid rgba(255,255,255,0.08);
+      border-top-color: var(--indigo);
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
       flex-shrink: 0;
@@ -283,122 +506,214 @@
     @keyframes spin { to { transform: rotate(360deg); } }
 
     .progress-status {
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: #374151;
+      font-size: 0.83rem;
+      font-weight: 500;
+      color: rgba(255,255,255,0.65);
     }
 
     .log-box {
-      background: #0f172a;
-      color: #94a3b8;
+      background: #050507;
+      color: #606878;
       border-radius: 10px;
-      padding: 16px;
-      font-family: "SF Mono", "Fira Code", monospace;
-      font-size: 0.72rem;
-      line-height: 1.6;
-      max-height: 260px;
+      padding: 14px 16px;
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+      font-size: 0.7rem;
+      line-height: 1.65;
+      max-height: 230px;
       overflow-y: auto;
       white-space: pre-wrap;
       word-break: break-all;
+      border: 1px solid rgba(255,255,255,0.04);
     }
 
-    .log-box .log-line { display: block; }
-    .log-box .log-line.stage { color: #818cf8; font-weight: 600; }
-    .log-box .log-line.ok    { color: #34d399; }
-    .log-box .log-line.warn  { color: #fbbf24; }
-    .log-box .log-line.error { color: #f87171; }
+    .log-box .log-line        { display: block; }
+    .log-box .log-line.stage  { color: #79c0ff; font-weight: 600; }
+    .log-box .log-line.ok     { color: #56d364; }
+    .log-box .log-line.warn   { color: #e3b341; }
+    .log-box .log-line.error  { color: #f85149; }
 
-    /* ── Result & Error ───────────────────────────────────────── */
+    /* ── RESULT ───────────────────────────────────────────────── */
 
     .result-box {
       display: none;
-      margin-top: 24px;
-      background: #f0fdf4;
-      border: 1px solid #bbf7d0;
-      border-radius: 12px;
-      padding: 20px 24px;
+      margin-top: 18px;
     }
 
     .result-box h3 {
-      font-size: 0.95rem;
-      font-weight: 700;
-      color: #065f46;
-      margin-bottom: 12px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--amber);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-      gap: 10px;
-      margin-bottom: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
+      gap: 8px;
+      margin-bottom: 16px;
     }
 
     .stat {
-      background: #fff;
+      background: rgba(255,255,255,0.035);
       border-radius: 8px;
-      padding: 10px 14px;
-      border: 1px solid #d1fae5;
+      padding: 10px 12px;
+      border: 1px solid rgba(255,255,255,0.06);
     }
 
-    .stat-val { font-size: 1.3rem; font-weight: 700; color: #059669; }
+    .stat-val {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--green);
+      line-height: 1;
+    }
 
     .stat-lbl {
-      font-size: 0.7rem;
-      color: #6b7280;
+      font-size: 0.63rem;
+      color: var(--text-3);
       text-transform: uppercase;
-      letter-spacing: 0.04em;
-      margin-top: 2px;
+      letter-spacing: 0.05em;
+      margin-top: 4px;
     }
 
     .btn-download {
-      display: inline-flex;
+      display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 12px 24px;
-      background: #059669;
-      color: #fff;
+      justify-content: center;
+      gap: 7px;
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #b45309 0%, #f59e0b 100%);
+      color: #000;
       border: none;
       border-radius: 10px;
-      font-size: 0.9rem;
+      font-size: 0.92rem;
       font-weight: 600;
       cursor: pointer;
       text-decoration: none;
-      transition: background 0.2s;
+      transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+      font-family: 'DM Sans', sans-serif;
+      letter-spacing: 0.01em;
+      box-shadow: 0 4px 18px rgba(245,158,11,0.35);
     }
 
-    .btn-download:hover { background: #047857; }
+    .btn-download:hover {
+      opacity: 0.88;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 26px rgba(245,158,11,0.48);
+    }
 
     .error-box {
       display: none;
-      margin-top: 24px;
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      border-radius: 12px;
-      padding: 16px 20px;
-      font-size: 0.85rem;
-      color: #dc2626;
+      margin-top: 18px;
+      background: rgba(248,81,73,0.07);
+      border: 1px solid rgba(248,81,73,0.22);
+      border-radius: 10px;
+      padding: 13px 17px;
+      font-size: 0.81rem;
+      color: #f87171;
+    }
+
+    /* ── RESPONSIVE ───────────────────────────────────────────── */
+
+    @media (max-width: 860px) {
+      body { height: auto; overflow: auto; }
+      .main-area { flex-direction: column; overflow: visible; }
+      .left-panel  { width: 100%; height: auto; overflow: visible; }
+      .left-panel::after { display: none; }
+      .l-nav { padding: 28px 32px 0; }
+      .l-content { padding: 40px 32px 30px; justify-content: flex-start; }
+      .right-panel { height: auto; padding: 36px 32px 48px; }
+      .site-footer { padding: 14px 32px; }
+    }
+
+    @media (max-width: 480px) {
+      .l-nav { padding: 22px 20px 0; }
+      .l-content { padding: 32px 20px 24px; }
+      .right-panel { padding: 28px 20px 40px; }
+      .site-footer { padding: 12px 20px; gap: 10px; }
+      .upload-grid { grid-template-columns: 1fr; }
+      .mapping-row { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
-<div class="card">
-  <h1>GST Reconciliation</h1>
-  <p class="subtitle">Upload your Inward Register and GSTR-2B to generate a reconciliation report.</p>
+
+<div class="main-area">
+
+<!-- ════════════════════════════════════════
+     LEFT PANEL
+════════════════════════════════════════ -->
+<div class="left-panel">
+
+  <nav class="l-nav">
+    <a class="l-brand" href="#">SH<span>.</span></a>
+    <span class="l-pill">AI-Powered</span>
+  </nav>
+
+  <div class="l-content">
+    <p class="eyebrow">// GST RECONCILIATION</p>
+
+    <h1 class="hero-title">
+      Reconcile your<br>
+      Books <span class="dim">with</span><br>
+      GSTR&#8209;2B.
+    </h1>
+
+    <p class="hero-desc">
+      Upload your Inward Register and GSTR‑2B export.
+      A 5‑stage engine matches invoices deterministically,
+      then GPT‑4o resolves format mismatches — all in minutes.
+    </p>
+
+    <ul class="feat-list">
+      <li><strong>5-Stage Matching Pipeline</strong> — exact, standardised, blue queue</li>
+      <li><strong>AI Disambiguation</strong> — invoice variants &amp; transliterations</li>
+      <li><strong>Color-Coded Excel Report</strong> — matched, review, unmatched</li>
+      <!-- <li><strong>Runs Locally</strong> — your data never leaves your machine</li> -->
+    </ul>
+  </div>
+
+
+</div>
+
+<!-- ════════════════════════════════════════
+     RIGHT PANEL
+════════════════════════════════════════ -->
+<div class="right-panel">
+
+  <p class="r-eyebrow">// UPLOAD &amp; RUN</p>
 
   <form id="uploadForm">
     <div class="upload-grid">
       <div class="upload-zone" id="zoneBooks">
         <input type="file" name="books" id="booksInput" accept=".xlsx,.xls" />
-        <div class="upload-icon">📒</div>
+        <div class="uz-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="9" y1="13" x2="15" y2="13"/>
+            <line x1="9" y1="17" x2="12" y2="17"/>
+          </svg>
+        </div>
         <div class="upload-label">Inward Register</div>
-        <div class="upload-hint">Books Excel file</div>
+        <div class="upload-hint">Books Excel (.xlsx)</div>
         <div class="file-name" id="booksName"></div>
       </div>
       <div class="upload-zone" id="zoneB2B">
         <input type="file" name="b2b" id="b2bInput" accept=".xlsx,.xls" />
-        <div class="upload-icon">🏛️</div>
+        <div class="uz-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+        </div>
         <div class="upload-label">GSTR-2B</div>
-        <div class="upload-hint">Government portal Excel</div>
+        <div class="upload-hint">Portal Excel (.xlsx)</div>
         <div class="file-name" id="b2bName"></div>
       </div>
     </div>
@@ -407,7 +722,7 @@
     <div class="mapping-wrap" id="mappingWrap" style="display:none">
       <div class="mapping-title-row">
         <span class="mapping-title">Column Mapping</span>
-        <span class="mapping-subtitle">Match your file's columns to the required fields</span>
+        <span class="mapping-subtitle">Map your file's columns to required fields</span>
       </div>
       <div class="header-row-bar">
         <label for="headerRowSelect">Header row in Excel</label>
@@ -417,7 +732,7 @@
           <option value="2">Row 3</option>
           <option value="3">Row 4</option>
         </select>
-        <span class="hr-hint">Which row contains the column names?</span>
+        <span class="hr-hint">Which row contains column names?</span>
       </div>
       <div id="mappingGrid"></div>
     </div>
@@ -434,15 +749,61 @@
   </div>
 
   <div class="result-box" id="resultBox">
-    <h3>Reconciliation complete</h3>
-    <div class="stats-grid" id="statsGrid"></div>
+    <h3>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+      Reconciliation complete
+    </h3>
     <a class="btn-download" id="downloadBtn" href="#">
-      ⬇ Download Report
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Download Report
     </a>
   </div>
 
   <div class="error-box" id="errorBox"></div>
-</div>
+
+</div><!-- end right-panel -->
+</div><!-- end main-area -->
+
+<!-- ════════════════════════════════════════
+     FULL-WIDTH FOOTER
+════════════════════════════════════════ -->
+<footer class="site-footer">
+  <span class="footer-brand">SH<span>.</span></span>
+
+  <div class="footer-links">
+    <a class="footer-link" href="https://www.linkedin.com/in/subramanya-hegde-6099661a1" target="_blank" rel="noopener">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/>
+        <rect x="2" y="9" width="4" height="12"/>
+        <circle cx="4" cy="4" r="2"/>
+      </svg>
+      Subramanya Hegde
+    </a>
+    <span class="footer-sep">·</span>
+    <a class="footer-link" href="mailto:subramanyah65@gmail.com">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+        <polyline points="22,6 12,13 2,6"/>
+      </svg>
+      subramanyah65@gmail.com
+    </a>
+    <span class="footer-sep">·</span>
+    <a class="footer-link" href="tel:+918971768932">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.18h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.27a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7a2 2 0 0 1 1.72 2.02z"/>
+      </svg>
+      +91 89717 68932
+    </a>
+  </div>
+
+  <span class="footer-copy">© 2026 Subramanya Hegde. All rights reserved.</span>
+</footer>
 
 <script>
   // ── Field definitions ──────────────────────────────────────────────────────
@@ -619,7 +980,7 @@
     return "";
   }
 
-  let pollTimer    = null;
+  let pollTimer     = null;
   let renderedLines = 0;
 
   function appendLog(lines) {
@@ -661,12 +1022,6 @@
   }
 
   function showStats(lines, jobId) {
-    const stats = extractStats(lines);
-    const grid  = document.getElementById("statsGrid");
-    grid.innerHTML = "";
-    Object.entries(stats).forEach(([label, val]) => {
-      grid.innerHTML += `<div class="stat"><div class="stat-val">${val}</div><div class="stat-lbl">${label}</div></div>`;
-    });
     document.getElementById("downloadBtn").href = `/download/${jobId}`;
     document.getElementById("resultBox").style.display  = "block";
     document.getElementById("spinner").style.display    = "none";
@@ -703,11 +1058,11 @@
     clearInterval(pollTimer);
     renderedLines = 0;
 
-    document.getElementById("logBox").innerHTML          = "";
-    document.getElementById("resultBox").style.display   = "none";
-    document.getElementById("errorBox").style.display    = "none";
+    document.getElementById("logBox").innerHTML           = "";
+    document.getElementById("resultBox").style.display    = "none";
+    document.getElementById("errorBox").style.display     = "none";
     document.getElementById("progressWrap").style.display = "block";
-    document.getElementById("spinner").style.display     = "inline-block";
+    document.getElementById("spinner").style.display      = "inline-block";
     document.getElementById("progressStatus").textContent = "Running engine…";
     runBtn.disabled = true;
 
