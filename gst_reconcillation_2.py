@@ -1404,6 +1404,21 @@ def _pair_unmatched(b_rows: list, g_rows: list) -> list:
             used_b.add(bi)
             used_g.add(gi)
 
+    remaining_b = [(bi, b_item) for bi, b_item in enumerate(b_rows) if bi not in used_b]
+    remaining_g = [(gi, g_item) for gi, g_item in enumerate(g_rows) if gi not in used_g]
+
+    second_pass: list[tuple[float, int, int]] = []
+    for bi, (_, b) in remaining_b:
+        for gi, (_, g) in remaining_g:
+            second_pass.append((_score(b, g), bi, gi))
+    second_pass.sort(reverse=True)
+
+    for sc, bi, gi in second_pass:
+        if bi not in used_b and gi not in used_g:
+            pairs.append((b_rows[bi], g_rows[gi]))
+            used_b.add(bi)
+            used_g.add(gi)
+
     for bi, b_item in enumerate(b_rows):
         if bi not in used_b:
             pairs.append((b_item, None))
