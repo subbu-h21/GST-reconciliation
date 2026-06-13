@@ -96,9 +96,11 @@ def _run_job(
     b2b_bytes: bytes,
     col_map: dict,
     header_row: int,
+    model: str = "openai/gpt-4.1-mini",
 ) -> None:
     import gst_reconcillation_2 as gst
     gst._AI_LOG.clear()
+    gst.AI_MODEL = model
 
     with tempfile.TemporaryDirectory() as tmpdir:
         books_path = Path(tmpdir) / "books.xlsx"
@@ -162,6 +164,7 @@ def run():
         return jsonify({"error": "Both files are required."}), 400
 
     header_row = int(request.form.get("header_row", 1))
+    model = request.form.get("model", "openai/gpt-4.1-mini")
     try:
         col_map = json.loads(request.form.get("col_map", "{}"))
     except json.JSONDecodeError:
@@ -174,7 +177,7 @@ def run():
 
     thread = threading.Thread(
         target=_run_job,
-        args=(job_id, books_file.read(), b2b_file.read(), col_map, header_row),
+        args=(job_id, books_file.read(), b2b_file.read(), col_map, header_row, model),
         daemon=True,
     )
     thread.start()

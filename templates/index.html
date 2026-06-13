@@ -455,6 +455,76 @@
 
     .mapping-error { font-size: 0.77rem; color: var(--red); padding: 6px 0; }
 
+    /* ── MODEL SELECTOR ──────────────────────────────────────── */
+
+    .model-wrap {
+      background: rgba(255,255,255,0.022);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 22px;
+      margin-bottom: 18px;
+    }
+
+    .model-title-row {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 13px;
+    }
+
+    .model-title { font-size: 0.84rem; font-weight: 600; color: rgba(255,255,255,0.78); }
+    .model-subtitle { font-size: 0.72rem; color: var(--text-3); }
+
+    .model-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .model-card {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 10px 12px;
+      border: 1px solid var(--border-2);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      background: rgba(255,255,255,0.03);
+      position: relative;
+    }
+
+    .model-card input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .model-card:hover {
+      border-color: rgba(245,158,11,0.35);
+      background: rgba(245,158,11,0.04);
+    }
+
+    .model-card:has(input:checked) {
+      border-color: rgba(245,158,11,0.6);
+      background: rgba(245,158,11,0.07);
+    }
+
+    .model-name {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.82);
+    }
+
+    .model-card:has(input:checked) .model-name { color: var(--amber); }
+
+    .model-meta {
+      font-size: 0.65rem;
+      color: var(--text-3);
+      line-height: 1.4;
+    }
+
     /* ── RUN BUTTON ───────────────────────────────────────────── */
 
     .btn-run {
@@ -666,7 +736,7 @@
     <p class="hero-desc">
       Upload your Inward Register and GSTR‑2B export.
       A 5‑stage engine matches invoices deterministically,
-      then GPT‑4o resolves format mismatches — all in minutes.
+      then AI resolves format mismatches — all in minutes.
     </p>
 
     <ul class="feat-list">
@@ -735,6 +805,46 @@
         <span class="hr-hint">Which row contains column names?</span>
       </div>
       <div id="mappingGrid"></div>
+    </div>
+
+    <!-- Model selector -->
+    <div class="model-wrap">
+      <div class="model-title-row">
+        <span class="model-title">AI Model</span>
+        <span class="model-subtitle">Used for invoice disambiguation</span>
+      </div>
+      <div class="model-grid">
+        <label class="model-card">
+          <input type="radio" name="model" value="openai/gpt-4.1-mini" checked />
+          <span class="model-name">GPT-4.1 Mini</span>
+          <span class="model-meta">OpenAI · Fast · Recommended</span>
+        </label>
+        <label class="model-card">
+          <input type="radio" name="model" value="openai/gpt-4o-mini" />
+          <span class="model-name">GPT-4o Mini</span>
+          <span class="model-meta">OpenAI · Reliable</span>
+        </label>
+        <label class="model-card">
+          <input type="radio" name="model" value="google/gemini-2.5-flash" />
+          <span class="model-name">Gemini 2.5 Flash</span>
+          <span class="model-meta">Google · Fast · Cheap</span>
+        </label>
+        <label class="model-card">
+          <input type="radio" name="model" value="google/gemini-2.5-flash-lite-preview-06-17" />
+          <span class="model-name">Gemini 2.5 Flash Lite</span>
+          <span class="model-meta">Google · Lightest · Cheapest</span>
+        </label>
+        <label class="model-card">
+          <input type="radio" name="model" value="deepseek/deepseek-chat" />
+          <span class="model-name">DeepSeek V3 Pro</span>
+          <span class="model-meta">DeepSeek · Strong reasoning</span>
+        </label>
+        <label class="model-card">
+          <input type="radio" name="model" value="deepseek/deepseek-r1-0528" />
+          <span class="model-name">DeepSeek R1</span>
+          <span class="model-meta">DeepSeek · Slowest · Most accurate</span>
+        </label>
+      </div>
     </div>
 
     <button type="submit" class="btn-run" id="runBtn" disabled>Run Reconciliation</button>
