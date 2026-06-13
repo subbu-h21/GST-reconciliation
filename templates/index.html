@@ -455,46 +455,6 @@
 
     .mapping-error { font-size: 0.77rem; color: var(--red); padding: 6px 0; }
 
-    /* ── MODEL SELECTOR ──────────────────────────────────────── */
-
-    .model-wrap {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: 18px;
-      flex-wrap: wrap;
-    }
-
-    .model-label {
-      font-size: 0.84rem;
-      font-weight: 600;
-      color: rgba(255,255,255,0.78);
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-
-    .model-select {
-      flex: 1;
-      min-width: 0;
-      padding: 9px 12px;
-      border: 1px solid var(--border-2);
-      border-radius: 8px;
-      font-size: 0.82rem;
-      color: rgba(255,255,255,0.82);
-      background: rgba(255,255,255,0.05);
-      cursor: pointer;
-      font-family: 'DM Sans', sans-serif;
-      transition: border-color 0.15s, box-shadow 0.15s;
-    }
-
-    .model-select option { background: #13131f; color: #fff; }
-
-    .model-select:focus {
-      outline: none;
-      border-color: var(--amber);
-      box-shadow: 0 0 0 2px rgba(245,158,11,0.18);
-    }
-
     /* ── RUN BUTTON ───────────────────────────────────────────── */
 
     .btn-run {
@@ -706,7 +666,7 @@
     <p class="hero-desc">
       Upload your Inward Register and GSTR‑2B export.
       A 5‑stage engine matches invoices deterministically,
-      then AI resolves format mismatches — all in minutes.
+      then Ai resolves format mismatches — all in minutes.
     </p>
 
     <ul class="feat-list">
@@ -775,19 +735,6 @@
         <span class="hr-hint">Which row contains column names?</span>
       </div>
       <div id="mappingGrid"></div>
-    </div>
-
-    <!-- Model selector -->
-    <div class="model-wrap">
-      <span class="model-label">AI Model</span>
-      <select name="model" class="model-select">
-        <option value="openai/gpt-4.1-mini" selected>GPT-4.1 Mini — OpenAI · Fast · Recommended</option>
-        <option value="openai/gpt-4o-mini">GPT-4o Mini — OpenAI · Reliable</option>
-        <option value="google/gemini-2.5-flash">Gemini 2.5 Flash — Google · Fast · Cheap</option>
-        <option value="google/gemini-3.1-flash-lite">Gemini 3.1 Flash Lite — Google · Lightest · Cheapest</option>
-        <option value="deepseek/deepseek-v4-pro">DeepSeek V4 Pro — DeepSeek · Strong reasoning</option>
-        <option value="deepseek/deepseek-v4-flash">DeepSeek V4 Flash — DeepSeek · Fast · Efficient</option>
-      </select>
     </div>
 
     <button type="submit" class="btn-run" id="runBtn" disabled>Run Reconciliation</button>

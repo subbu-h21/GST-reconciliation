@@ -72,7 +72,7 @@ BLUE_AUTO_ACCEPT    = 0.90
 BLUE_MIN_REVIEW     = 0.60
 NONBLUE_AUTO_ACCEPT = 0.93
 NONBLUE_MIN_REVIEW  = 0.75
-AI_MODEL            = "openai/gpt-4.1-mini"  # OpenRouter model ID
+AI_MODEL            = "openai/gpt-4o-mini"   # OpenRouter model ID
 # AI_MODEL            = "gemini-2.5-flash-lite"
 # AI_MODEL            = "openai/gpt-5-mini"     # stronger, but more expensive and slower — use only if needed
 
